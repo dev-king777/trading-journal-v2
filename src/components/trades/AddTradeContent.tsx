@@ -250,8 +250,8 @@ export default function AddTradeContent() {
         >
           <div>
             <p className="text-[11px] text-foreground-subtle uppercase tracking-wider">Est. P&L</p>
-            <p className={`text-xl font-bold ${calculatedPnl >= 0 ? 'text-profit' : 'text-loss'}`}>
-              {calculatedPnl >= 0 ? '+' : ''}${calculatedPnl.toFixed(2)}
+            <p className={`text-xl font-bold ${calculatedPnl > 0 ? 'text-profit' : calculatedPnl < 0 ? 'text-loss' : 'text-gray-400'}`}>
+              {calculatedPnl > 0 ? '+$' : calculatedPnl < 0 ? '-$' : '$'}{Math.abs(calculatedPnl).toFixed(2)}
             </p>
           </div>
           <div className="w-px h-10 bg-border-subtle" />

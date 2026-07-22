@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Sparkles, Upload, X, Check, Save, Cpu, BrainCircuit, Activity,
-  AlertTriangle, RefreshCw, Image, SlidersHorizontal
+  AlertTriangle, RefreshCw, Image, SlidersHorizontal, TrendingUp, TrendingDown, ShieldAlert
 } from 'lucide-react';
 import { useTradeStore, isSupabaseConfigured, supabase } from '@/lib/store';
 import { toast } from 'sonner';
 import { Market, Direction, Session, Timeframe } from '@/lib/types';
+import { calculateXAUUSDPnl } from '@/lib/utils';
 
 interface DragaAiLoggerProps {
   isOpen: boolean;
@@ -19,6 +20,34 @@ const VALID_DIRECTIONS: Direction[] = ['Long', 'Short'];
 const VALID_SESSIONS: Session[] = ['Asian', 'London', 'New York', 'Sydney', 'Overlap'];
 const VALID_TIMEFRAMES: Timeframe[] = ['1m', '5m', '15m', '30m', '1H', '4H', 'Daily', 'Weekly', 'Monthly'];
 const VALID_MARKETS: Market[] = ['Forex', 'Crypto', 'Stocks', 'Indices', 'Commodities', 'Futures', 'Options'];
+
+// ─── Image Compression (canvas downscale → JPEG 0.6) ───
+// Reduces payload by ~95%, drastically speeding up API calls
+function compressBase64Image(
+  base64: string,
+  maxDim = 800,
+  quality = 0.6
+): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        const ratio = Math.min(maxDim / width, maxDim / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(base64); // fallback to original on error
+    img.src = base64;
+  });
+}
 
 export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
   const addTrade = useTradeStore((s) => s.addTrade);
@@ -36,9 +65,9 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
   const detailsFileRef = useRef<HTMLInputElement>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
-  // ─── Risk management inputs ───
-  const [accountBalance, setAccountBalance] = useState<number | ''>(6000);
-  const [riskPercent, setRiskPercent] = useState<number | ''>(1);
+  // ─── Risk management inputs (stored as strings for safe decimal typing) ───
+  const [accountBalanceStr, setAccountBalanceStr] = useState('6000');
+  const [riskPercentStr, setRiskPercentStr] = useState('1');
 
   // ─── Trade form states ───
   const [pair, setPair] = useState('XAUUSD');
@@ -67,6 +96,12 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
   const [confluences, setConfluences] = useState<string[]>([]);
   const [riskReward, setRiskReward] = useState<string | null>(null);
   const [suggestedLotSize, setSuggestedLotSize] = useState(false);
+
+  // ─── Live P&L calculation ───
+  const calculatedPnl = useMemo(() => {
+    if (entryPrice == null || exitPrice == null) return null;
+    return calculateXAUUSDPnl(direction, entryPrice, exitPrice, positionSize);
+  }, [direction, entryPrice, exitPrice, positionSize]);
 
   // Reset on close
   useEffect(() => {
@@ -101,6 +136,8 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
       setConfluences([]);
       setRiskReward(null);
       setSuggestedLotSize(false);
+      setAccountBalanceStr('6000');
+      setRiskPercentStr('1');
     }
   }, [isOpen]);
 
@@ -217,15 +254,22 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
     addLog('Connecting to OpenRouter API...');
 
     try {
-      addLog('Uploading Image 1 (Chart) + Image 2 (Position Details)...');
-      addLog('Running Vision AI on both images...');
+      addLog('Compressing images for faster upload...');
+      const [compressedChart, compressedDetails] = await Promise.all([
+        compressBase64Image(chartImage!),
+        compressBase64Image(detailsImage!),
+      ]);
+      addLog('✓ Images compressed (800px, JPEG 60%)');
+      addLog('Uploading to Vision AI...');
 
       const requestBody: Record<string, unknown> = {
-        chartImage,
-        detailsImage,
+        chartImage: compressedChart,
+        detailsImage: compressedDetails,
       };
-      if (accountBalance) requestBody.accountBalance = Number(accountBalance);
-      if (riskPercent) requestBody.riskPercent = Number(riskPercent);
+      const balanceNum = parseFloat(accountBalanceStr);
+      const riskNum = parseFloat(riskPercentStr);
+      if (!isNaN(balanceNum) && balanceNum > 0) requestBody.accountBalance = balanceNum;
+      if (!isNaN(riskNum) && riskNum > 0) requestBody.riskPercent = riskNum;
 
       const res = await fetch('/api/analyze-trade', {
         method: 'POST',
@@ -235,6 +279,18 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({ error: 'Unknown error' }));
+
+        // ─── GUARDRAIL: Check isValidChart from backend ───
+        if (errData.isValidChart === false) {
+          addLog('✗ IMAGE REJECTED: Not a valid trading chart');
+          toast.error('🚫 This doesn\'t look like a trading chart. Please upload a valid TradingView chart screenshot.', {
+            duration: 6000,
+          });
+          setErrorMessage('The uploaded image is not a financial trading chart. Draga AI only analyzes real TradingView/MT4/MT5 chart screenshots. Please try again with a valid chart image.');
+          setTimeout(() => setScanStep('error'), 800);
+          return;
+        }
+
         if (errData.setup_required) {
           throw new Error('OpenRouter API key not configured. Add OPENROUTER_API_KEY to .env.local');
         }
@@ -244,6 +300,17 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
       addLog('Parsing AI response...');
       const data = await res.json();
       console.log('Draga AI Dual-Image Response:', data);
+
+      // ─── GUARDRAIL: Double-check isValidChart on frontend ───
+      if (data.isValidChart === false) {
+        addLog('✗ IMAGE REJECTED: AI determined this is not a trading chart');
+        toast.error('🚫 This image is not a trading chart. Please upload a valid chart screenshot.', {
+          duration: 6000,
+        });
+        setErrorMessage('The uploaded image was not recognized as a financial chart. Please upload a real TradingView chart screenshot.');
+        setTimeout(() => setScanStep('error'), 800);
+        return;
+      }
 
       // ─── Populate state ───
       if (data.symbol && data.symbol !== 'Unknown') setPair(data.symbol.toUpperCase());
@@ -258,7 +325,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
       if (data.take_profit != null) setTakeProfit(data.take_profit);
       if (data.stop_loss != null) setStopLoss(data.stop_loss);
       if (data.lot_size != null && data.lot_size > 0) setPositionSize(String(data.lot_size));
-      if (data.account_size != null && !accountBalance) setAccountBalance(data.account_size);
+      if (data.account_size != null && accountBalanceStr === '6000') setAccountBalanceStr(String(data.account_size));
 
       if (data.setup && data.setup !== 'Unknown') setStrategy(data.setup);
       if (data.trade_grade) setTradeGrade(data.trade_grade);
@@ -294,6 +361,8 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
       addLog(`✓ Setup: ${data.setup || 'Unknown'} (${data.setup_confidence || 0}%)`);
       addLog(`✓ Grade: ${data.trade_grade || '—'}`);
       if (data.risk_reward) addLog(`✓ R:R = ${data.risk_reward}`);
+      if (data.estimated_profit != null) addLog(`✓ Est. Profit: $${data.estimated_profit}`);
+      if (data.estimated_loss != null) addLog(`✓ Est. Loss: $${data.estimated_loss}`);
       addLog('Dual-image pipeline complete.');
 
       setTimeout(() => setScanStep('review'), 1200);
@@ -318,6 +387,14 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
 
   const handleSave = async (isDraft: boolean) => {
     try {
+      // Calculate P&L using the bulletproof formula
+      const finalPnl = calculateXAUUSDPnl(
+        direction,
+        entryPrice ?? 0,
+        exitPrice ?? takeProfit ?? 0,
+        positionSize
+      );
+
       await addTrade({
         pair: pair.trim().toUpperCase() || 'XAUUSD',
         market,
@@ -327,9 +404,10 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
         stopLoss: stopLoss ?? 0,
         takeProfit: takeProfit ?? 0,
         positionSize: parseFloat(positionSize) || 0.01,
-        riskPercent: typeof riskPercent === 'number' ? riskPercent : 1.0,
+        riskPercent: parseFloat(riskPercentStr) || 1.0,
         rewardPercent: 0,
         fees,
+        pnl: finalPnl,
         session,
         strategy: strategy.trim() || 'Manual Entry',
         setup: dynamicTitle || `${pair} ${direction} ${strategy}`.trim(),
@@ -370,9 +448,9 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
     </div>
   );
 
-  const DropZone = ({ label, description, icon: Icon, preview, onFile, inputRef, accentColor = 'yellow' }: {
+  const DropZone = ({ label, description, icon: Icon, preview, onFile, onClear, inputRef, accentColor = 'yellow' }: {
     label: string; description: string; icon: React.ElementType; preview: string | null;
-    onFile: (f: File) => void; inputRef: React.RefObject<HTMLInputElement | null>; accentColor?: string;
+    onFile: (f: File) => void; onClear: () => void; inputRef: React.RefObject<HTMLInputElement | null>; accentColor?: string;
   }) => (
     <div
       className={`relative flex flex-col items-center justify-center py-8 border-2 border-dashed rounded-xl transition-all cursor-pointer ${
@@ -380,7 +458,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
           ? `border-${accentColor}-500/30 bg-${accentColor}-500/[0.02]`
           : `border-white/10 hover:border-${accentColor}-500/40 bg-white/[0.01] hover:bg-white/[0.02]`
       }`}
-      onClick={() => inputRef.current?.click()}
+      onClick={() => !preview && inputRef.current?.click()}
       onDrop={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -395,9 +473,17 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
       {preview ? (
         <div className="w-full px-3">
           <img src={preview} alt={label} className="w-full h-24 object-cover rounded-lg border border-white/[0.06]" />
-          <p className="text-[10px] text-green-400 text-center mt-2 font-bold flex items-center justify-center gap-1">
-            <Check className="w-3 h-3" /> {label} uploaded
-          </p>
+          <div className="flex items-center justify-center gap-2 mt-2">
+            <p className="text-[10px] text-green-400 font-bold flex items-center gap-1">
+              <Check className="w-3 h-3" /> {label} uploaded
+            </p>
+            <button
+              onClick={(e) => { e.stopPropagation(); onClear(); }}
+              className="text-[10px] text-red-400/60 hover:text-red-400 transition-colors"
+            >
+              ✕ Clear
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -459,6 +545,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                       icon={Image}
                       preview={chartImage}
                       onFile={processChartFile}
+                      onClear={() => { setChartImage(null); setChartImageDisplay(null); }}
                       inputRef={chartFileRef}
                       accentColor="yellow"
                     />
@@ -468,28 +555,50 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                       icon={SlidersHorizontal}
                       preview={detailsImage}
                       onFile={processDetailsFile}
+                      onClear={() => { setDetailsImage(null); setDetailsImagePreview(null); }}
                       inputRef={detailsFileRef}
                       accentColor="blue"
                     />
                   </div>
 
-                  {/* Optional: risk context */}
+                  {/* Risk context inputs — using text inputs for safe decimal typing */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[10px] text-foreground-subtle uppercase tracking-wider font-bold mb-1.5 block">
-                        Account Balance (optional)
+                        Account Balance
                       </label>
-                      <input type="number" step="any" value={accountBalance} placeholder="e.g. 10000"
-                        onChange={(e) => setAccountBalance(e.target.value ? parseFloat(e.target.value) : '')}
-                        className="input-field w-full text-sm font-sans" />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={accountBalanceStr}
+                        placeholder="e.g. 6000"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          // Allow digits, one dot, and empty string
+                          if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                            setAccountBalanceStr(v);
+                          }
+                        }}
+                        className="input-field w-full text-sm font-sans"
+                      />
                     </div>
                     <div>
                       <label className="text-[10px] text-foreground-subtle uppercase tracking-wider font-bold mb-1.5 block">
-                        Risk % (optional)
+                        Risk %
                       </label>
-                      <input type="number" step="0.1" min="0.1" max="100" value={riskPercent} placeholder="1"
-                        onChange={(e) => setRiskPercent(e.target.value ? parseFloat(e.target.value) : '')}
-                        className="input-field w-full text-sm font-sans" />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={riskPercentStr}
+                        placeholder="1"
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                            setRiskPercentStr(v);
+                          }
+                        }}
+                        className="input-field w-full text-sm font-sans"
+                      />
                     </div>
                   </div>
 
@@ -564,10 +673,22 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
               {scanStep === 'error' && (
                 <div className="space-y-6">
                   <div className="flex flex-col items-center py-8 text-center">
-                    <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-400">
-                      <AlertTriangle className="w-7 h-7" />
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${
+                      errorMessage.includes('not a financial') || errorMessage.includes('not recognized')
+                        ? 'bg-orange-500/10 text-orange-400'
+                        : 'bg-red-500/10 text-red-400'
+                    }`}>
+                      {errorMessage.includes('not a financial') || errorMessage.includes('not recognized')
+                        ? <ShieldAlert className="w-7 h-7" />
+                        : <AlertTriangle className="w-7 h-7" />
+                      }
                     </div>
-                    <h4 className="text-sm font-bold text-foreground mb-2">Analysis Failed</h4>
+                    <h4 className="text-sm font-bold text-foreground mb-2">
+                      {errorMessage.includes('not a financial') || errorMessage.includes('not recognized')
+                        ? 'Invalid Chart Image'
+                        : 'Analysis Failed'
+                      }
+                    </h4>
                     <p className="text-xs text-foreground-subtle max-w-[380px] leading-relaxed">
                       {errorMessage || 'Vision AI could not analyze the screenshots.'}
                     </p>
@@ -635,7 +756,13 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                         type="text"
                         inputMode="decimal"
                         value={positionSize}
-                        onChange={(e) => setPositionSize(e.target.value)}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          // Allow digits, one dot, and empty string — never snap back on partial decimals
+                          if (v === '' || /^\d*\.?\d*$/.test(v)) {
+                            setPositionSize(v);
+                          }
+                        }}
                         placeholder="0.01"
                         className="input-field text-center py-2 text-lg font-bold text-foreground border-yellow-500/30 focus:border-yellow-500 font-sans"
                       />
@@ -654,6 +781,36 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                       <PriceField label="Take Profit" value={takeProfit} onChange={setTakeProfit} color="text-[#22c55e]" />
                     </div>
                   </div>
+
+                  {/* ─── Live P&L Display ─── */}
+                  {calculatedPnl !== null && (
+                    <div className={`p-4 rounded-xl border flex items-center justify-between ${
+                      calculatedPnl > 0
+                        ? 'bg-green-500/[0.04] border-green-500/15'
+                        : calculatedPnl < 0
+                        ? 'bg-red-500/[0.04] border-red-500/15'
+                        : 'bg-white/[0.02] border-white/[0.06]'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {calculatedPnl >= 0
+                          ? <TrendingUp className="w-4 h-4 text-green-400" />
+                          : <TrendingDown className="w-4 h-4 text-red-400" />
+                        }
+                        <div>
+                          <p className="text-[9px] text-foreground-subtle uppercase tracking-wider">Calculated P&L</p>
+                          <p className="text-[10px] text-foreground-subtle/50 font-mono">
+                            ({direction === 'Long' ? 'Exit−Entry' : 'Entry−Exit'}) × {positionSize || '0'} lots × 100
+                          </p>
+                        </div>
+                      </div>
+                      <span className={`text-lg font-bold font-sans ${
+                        calculatedPnl > 0 ? 'text-green-400' : calculatedPnl < 0 ? 'text-red-400' : 'text-foreground-subtle'
+                      }`}>
+                        {calculatedPnl > 0 ? '+' : ''}{calculatedPnl.toFixed(2)}
+                        <span className="text-xs ml-1 opacity-60">USD</span>
+                      </span>
+                    </div>
+                  )}
 
                   {/* AI Insights */}
                   <div className="space-y-2">
@@ -706,7 +863,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                     {aiCommentary && (
                       <div className="p-3 rounded-lg bg-yellow-500/[0.02] border border-yellow-500/10 mt-2">
                         <p className="text-[9px] text-yellow-500/50 uppercase tracking-wider mb-1.5">Draga AI Analysis</p>
-                        <p className="text-xs text-foreground/80 leading-relaxed italic">&ldquo;{aiCommentary}&rdquo;</p>
+                        <p className="text-xs text-foreground/80 leading-relaxed italic" dir="auto">&ldquo;{aiCommentary}&rdquo;</p>
                       </div>
                     )}
 

@@ -87,13 +87,13 @@ export default function TradeCard({
           {/* Overlaid badges */}
           <div className="absolute top-3 right-3 z-10">
             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${
-              trade.result === 'Win'
+              trade.pnl > 0
                 ? 'bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30'
-                : trade.result === 'Loss'
+                : trade.pnl < 0
                 ? 'bg-[#ef4444]/20 text-[#ef4444] border border-[#ef4444]/30'
-                : 'bg-white/10 text-foreground-subtle border border-white/10'
+                : 'bg-white/10 text-gray-400 border border-white/10'
             }`}>
-              {trade.result}
+              {trade.pnl > 0 ? 'WIN' : trade.pnl < 0 ? 'LOSS' : 'BREAKEVEN'}
             </span>
           </div>
           
@@ -115,8 +115,10 @@ export default function TradeCard({
             </div>
             
             <div className="text-right">
-              <p className={`text-base font-bold tabular-nums ${trade.pnl >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-                {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+              <p className={`text-base font-bold tabular-nums ${
+                trade.pnl > 0 ? 'text-[#22c55e]' : trade.pnl < 0 ? 'text-[#ef4444]' : 'text-gray-400'
+              }`}>
+                {trade.pnl > 0 ? '+$' : trade.pnl < 0 ? '-$' : '$'}{Math.abs(trade.pnl).toFixed(2)}
               </p>
               <span className="text-[10px] text-foreground-subtle">{getRelativeTime(trade.date)}</span>
             </div>

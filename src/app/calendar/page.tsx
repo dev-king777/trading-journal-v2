@@ -222,8 +222,8 @@ export default function CalendarPage() {
                 <span className="text-lg font-bold text-foreground">
                   {format(currentMonth, 'MMMM yyyy')}
                 </span>
-                <span className={`text-sm font-bold ${monthNetPnl >= 0 ? 'text-profit' : 'text-loss'}`}>
-                  {monthNetPnl >= 0 ? '+' : ''}${monthNetPnl.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                <span className={`text-sm font-bold ${monthNetPnl > 0 ? 'text-profit' : monthNetPnl < 0 ? 'text-loss' : 'text-gray-400'}`}>
+                  {monthNetPnl > 0 ? '+$' : monthNetPnl < 0 ? '-$' : '$'}{Math.abs(monthNetPnl).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
@@ -376,11 +376,11 @@ export default function CalendarPage() {
                 {/* Day stats card */}
                 {selectedDayTrades.length > 0 && (
                   <div className={`p-4 rounded-xl ${
-                    selectedDayPnl >= 0 ? 'bg-profit/5 border border-profit/10' : 'bg-loss/5 border border-loss/10'
+                    selectedDayPnl > 0 ? 'bg-profit/5 border border-profit/10' : selectedDayPnl < 0 ? 'bg-loss/5 border border-loss/10' : 'bg-white/[0.02] border border-white/[0.06]'
                   }`}>
                     <p className="text-xs text-foreground-subtle">Day Net P&L</p>
-                    <p className={`text-2xl font-bold ${selectedDayPnl >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-                      {selectedDayPnl >= 0 ? '+' : ''}${selectedDayPnl.toFixed(2)}
+                    <p className={`text-2xl font-bold ${selectedDayPnl > 0 ? 'text-[#22c55e]' : selectedDayPnl < 0 ? 'text-[#ef4444]' : 'text-gray-400'}`}>
+                      {selectedDayPnl > 0 ? '+$' : selectedDayPnl < 0 ? '-$' : '$'}{Math.abs(selectedDayPnl).toFixed(2)}
                     </p>
                   </div>
                 )}
@@ -397,8 +397,8 @@ export default function CalendarPage() {
                               {t.direction === 'Long' ? <ArrowUpRight className="w-3.5 h-3.5 text-[#22c55e]" /> : <ArrowDownRight className="w-3.5 h-3.5 text-[#ef4444]" />}
                               <span>{t.pair}</span>
                             </div>
-                            <span className={`text-xs font-bold ${t.pnl >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
-                              {t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(0)}
+                            <span className={`text-xs font-bold ${t.pnl > 0 ? 'text-[#22c55e]' : t.pnl < 0 ? 'text-[#ef4444]' : 'text-gray-400'}`}>
+                              {t.pnl > 0 ? '+$' : t.pnl < 0 ? '-$' : '$'}{Math.abs(t.pnl).toFixed(0)}
                             </span>
                           </div>
                           <p className="text-[10px] text-foreground-subtle mt-0.5">{t.strategy} · {t.timeframe}</p>

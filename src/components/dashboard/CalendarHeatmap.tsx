@@ -114,7 +114,7 @@ export default function CalendarHeatmap({ trades }: CalendarHeatmapProps) {
                     whileHover={{ scale: 1.5 }}
                     className="relative w-4 h-4 rounded-sm cursor-pointer group"
                     style={{ background: getColor(pnl) }}
-                    title={pnl !== undefined ? `${format(day, 'MMM d')}: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}` : format(day, 'MMM d')}
+                    title={pnl !== undefined ? `${format(day, 'MMM d')}: ${pnl > 0 ? '+$' : pnl < 0 ? '-$' : '$'}${Math.abs(pnl).toFixed(2)}` : format(day, 'MMM d')}
                   >
                     {isToday && (
                       <div className="absolute inset-0 rounded-sm border border-accent-blue" />

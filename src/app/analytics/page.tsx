@@ -17,7 +17,7 @@ function CustomTooltip({ active, payload, label }: any) {
         <p className="text-xs text-foreground-subtle mb-1">{label}</p>
         {payload.map((p: any, i: number) => (
           <p key={i} className="text-sm font-semibold" style={{ color: p.color || p.fill }}>
-            {p.name}: {typeof p.value === 'number' ? `${p.value >= 0 ? '+' : ''}$${p.value.toFixed(2)}` : p.value}
+            {p.name}: {typeof p.value === 'number' ? `${p.value > 0 ? '+$' : p.value < 0 ? '-$' : '$'}${Math.abs(p.value).toFixed(2)}` : p.value}
           </p>
         ))}
       </div>

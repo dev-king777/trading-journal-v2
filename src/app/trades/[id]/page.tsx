@@ -375,9 +375,9 @@ export default function TradeDetailPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className={`rounded-2xl p-8 border ${
-                trade.result === 'Win'
+                trade.pnl > 0
                   ? 'bg-gradient-to-br from-profit/5 to-transparent border-profit/10'
-                  : trade.result === 'Loss'
+                  : trade.pnl < 0
                   ? 'bg-gradient-to-br from-loss/5 to-transparent border-loss/10'
                   : 'bg-card border-border-subtle'
               }`}
@@ -393,9 +393,9 @@ export default function TradeDetailPage() {
                     <div className="flex items-center gap-3">
                       <h1 className="text-3xl font-bold text-foreground">{trade.pair}</h1>
                       <span className={`badge text-sm ${
-                        trade.result === 'Win' ? 'badge-win' : trade.result === 'Loss' ? 'badge-loss' : 'badge-breakeven'
+                        trade.pnl > 0 ? 'badge-win' : trade.pnl < 0 ? 'badge-loss' : 'badge-breakeven'
                       }`}>
-                        {trade.result}
+                        {trade.pnl > 0 ? 'WIN' : trade.pnl < 0 ? 'LOSS' : 'BREAKEVEN'}
                       </span>
                     </div>
                     <p className="text-foreground-subtle mt-1">
@@ -405,8 +405,10 @@ export default function TradeDetailPage() {
                 </div>
 
                 <div className="text-right">
-                  <p className={`text-4xl font-bold ${trade.pnl >= 0 ? 'text-profit' : 'text-loss'}`}>
-                    {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                  <p className={`text-4xl font-bold ${
+                    trade.pnl > 0 ? 'text-profit' : trade.pnl < 0 ? 'text-loss' : 'text-gray-400'
+                  }`}>
+                    {trade.pnl > 0 ? '+$' : trade.pnl < 0 ? '-$' : '$'}{Math.abs(trade.pnl).toFixed(2)}
                   </p>
                   <p className="text-lg font-semibold text-foreground-muted mt-1">
                     {trade.rrRatio.toFixed(2)}R
@@ -552,7 +554,7 @@ export default function TradeDetailPage() {
                   <div className="relative">
                     <div className="absolute -left-5 top-1 w-2.5 h-2.5 rounded-full bg-accent-emerald" />
                     <p className="text-xs text-foreground-subtle">{new Date(trade.updatedAt).toLocaleString()}</p>
-                    <p className="text-foreground-muted">Trade exited at price {trade.exitPrice.toFixed(5)} with P&L of {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}</p>
+                    <p className="text-foreground-muted">Trade exited at price {trade.exitPrice.toFixed(5)} with P&L of {trade.pnl > 0 ? '+$' : trade.pnl < 0 ? '-$' : '$'}{Math.abs(trade.pnl).toFixed(2)}</p>
                   </div>
                 )}
               </div>

@@ -36,6 +36,35 @@ export function calculatePnL(
   return diff * size;
 }
 
+/**
+ * Bulletproof XAUUSD P&L Calculation
+ * Gold: 1 standard lot = 100 oz → $100 per $1 price move per lot
+ * 
+ * LONG:  Profit = (Exit - Entry) * LotSize * 100
+ * SHORT: Profit = (Entry - Exit) * LotSize * 100
+ * 
+ * All inputs are parsed as strings to avoid JS floating-point issues.
+ * Result is strictly formatted with .toFixed(2).
+ */
+export function calculateXAUUSDPnl(
+  direction: 'Long' | 'Short',
+  entry: string | number,
+  exit: string | number,
+  lotSize: string | number
+): number {
+  const e = parseFloat(String(entry));
+  const x = parseFloat(String(exit));
+  const lots = parseFloat(String(lotSize));
+
+  if (isNaN(e) || isNaN(x) || isNaN(lots) || lots <= 0) return 0;
+
+  const profit = direction === 'Long'
+    ? (x - e) * lots * 100
+    : (e - x) * lots * 100;
+
+  return parseFloat(profit.toFixed(2));
+}
+
 export function calculateRR(
   direction: 'Long' | 'Short',
   entry: number,

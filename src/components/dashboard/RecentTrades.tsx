@@ -81,9 +81,9 @@ export default function RecentTrades({ trades }: RecentTradesProps) {
                 {/* PnL & Emotion */}
                 <div className="text-right flex-shrink-0">
                   <p className={`text-sm font-bold ${
-                    trade.pnl >= 0 ? 'text-profit' : 'text-loss'
+                    trade.pnl > 0 ? 'text-profit' : trade.pnl < 0 ? 'text-loss' : 'text-gray-400'
                   }`}>
-                    {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                    {trade.pnl > 0 ? '+$' : trade.pnl < 0 ? '-$' : '$'}{Math.abs(trade.pnl).toFixed(2)}
                   </p>
                   <div className="flex items-center gap-1.5 justify-end mt-0.5">
                     <span className="text-xs">{getEmotionEmoji(trade.emotionBefore)}</span>

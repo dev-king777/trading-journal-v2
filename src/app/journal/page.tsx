@@ -450,8 +450,8 @@ export default function JournalPage() {
                             <span className="font-semibold text-foreground">{t.pair}</span>
                             <span className="text-[10px] text-foreground-subtle">{t.strategy}</span>
                           </div>
-                          <span className={t.pnl >= 0 ? 'text-profit' : 'text-loss'}>
-                            {t.pnl >= 0 ? '+' : ''}${t.pnl.toFixed(0)}
+                          <span className={t.pnl > 0 ? 'text-profit' : t.pnl < 0 ? 'text-loss' : 'text-gray-400'}>
+                            {t.pnl > 0 ? '+$' : t.pnl < 0 ? '-$' : '$'}{Math.abs(t.pnl).toFixed(0)}
                           </span>
                         </button>
                       );

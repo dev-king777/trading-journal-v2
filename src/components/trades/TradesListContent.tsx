@@ -18,7 +18,7 @@ const PAGE_SIZE = 12;
 
 export default function TradesListContent() {
   const {
-    trades, bulkDelete, bulkArchive, bulkEdit
+    trades, bulkDelete, deleteAllTrades, bulkArchive, bulkEdit
   } = useTradeStore();
 
   const [search, setSearch] = useState('');
@@ -189,8 +189,8 @@ export default function TradesListContent() {
         doc.text(t.market, 80, y);
         doc.text(t.strategy.substring(0, 18), 110, y);
         doc.text(`${t.rrRatio}R`, 145, y);
-        doc.setTextColor(t.pnl >= 0 ? 34 : 239, t.pnl >= 0 ? 197 : 68, t.pnl >= 0 ? 94 : 68);
-        doc.text(`${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}`, 165, y);
+        doc.setTextColor(t.pnl > 0 ? 34 : t.pnl < 0 ? 239 : 156, t.pnl > 0 ? 197 : t.pnl < 0 ? 68 : 163, t.pnl > 0 ? 94 : t.pnl < 0 ? 68 : 175);
+        doc.text(`${t.pnl > 0 ? '+$' : t.pnl < 0 ? '-$' : '$'}${Math.abs(t.pnl).toFixed(2)}`, 165, y);
         doc.setTextColor(9, 9, 11);
         y += 8;
       });
@@ -405,6 +405,17 @@ export default function TradesListContent() {
     setSelectedIds([]);
   };
 
+  const handleDeleteAllTrades = async () => {
+    if (trades.length === 0) {
+      toast.info('No trades to delete');
+      return;
+    }
+    if (window.confirm(`Are you sure you want to PERMANENTLY delete all ${trades.length} trades? This action cannot be undone.`)) {
+      await deleteAllTrades();
+      toast.success('All trades have been deleted');
+    }
+  };
+
   return (
     <div className="max-w-[1440px] mx-auto space-y-6">
       {/* Header */}
@@ -451,6 +462,15 @@ export default function TradesListContent() {
           >
             <Sparkles className="w-4 h-4 text-yellow-500 animate-pulse" />
             <span>Log with Draga</span>
+          </button>
+
+          <button
+            onClick={handleDeleteAllTrades}
+            className="btn-secondary border-red-500/20 hover:border-red-500/50 text-red-400 hover:bg-red-500/10"
+            title="Delete All Trades"
+          >
+            <Trash2 className="w-4 h-4 text-red-400" />
+            <span className="hidden sm:inline">Delete All</span>
           </button>
 
           <Link href="/trades/new" className="btn-primary">

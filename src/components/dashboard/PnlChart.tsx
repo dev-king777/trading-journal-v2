@@ -16,8 +16,8 @@ function CustomTooltip({ active, payload, label }: any) {
     return (
       <div className="custom-tooltip">
         <p className="text-xs text-foreground-subtle mb-1">{label}</p>
-        <p className={`text-sm font-semibold ${payload[0].value >= 0 ? 'text-profit' : 'text-loss'}`}>
-          {payload[0].value >= 0 ? '+' : ''}${payload[0].value.toFixed(2)}
+        <p className={`text-sm font-semibold ${payload[0].value > 0 ? 'text-profit' : payload[0].value < 0 ? 'text-loss' : 'text-gray-400'}`}>
+          {payload[0].value > 0 ? '+$' : payload[0].value < 0 ? '-$' : '$'}{Math.abs(payload[0].value).toFixed(2)}
         </p>
       </div>
     );

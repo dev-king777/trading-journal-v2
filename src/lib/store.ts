@@ -322,6 +322,7 @@ interface TradeStore {
   toggleFavorite: (id: string) => Promise<void>;
   archiveTrade: (id: string) => Promise<void>;
   bulkDelete: (ids: string[]) => Promise<void>;
+  deleteAllTrades: () => Promise<void>;
   bulkArchive: (ids: string[], archive: boolean) => Promise<void>;
   bulkEdit: (ids: string[], updates: Partial<Trade>) => Promise<void>;
   getTradeById: (id: string) => Trade | undefined;
@@ -528,6 +529,17 @@ export const useTradeStore = create<TradeStore>()(
             await supabase.from('trades').delete().in('id', ids);
           } catch (err) {
             console.error('Supabase bulk delete failed:', err);
+          }
+        }
+      },
+
+      deleteAllTrades: async () => {
+        set({ trades: [] });
+        if (isSupabaseConfigured) {
+          try {
+            await supabase.from('trades').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          } catch (err) {
+            console.error('Supabase deleteAllTrades failed:', err);
           }
         }
       },

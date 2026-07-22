@@ -152,8 +152,8 @@ export default function CommandPalette() {
                         <TrendingUp className="w-4 h-4" />
                         <span>{trade.pair}</span>
                         <span className="text-[10px] text-foreground-subtle">({trade.strategy})</span>
-                        <span className={`ml-auto text-xs font-medium ${trade.pnl >= 0 ? 'text-profit' : 'text-loss'}`}>
-                          {trade.pnl >= 0 ? '+' : ''}{trade.pnl.toFixed(2)}
+                        <span className={`ml-auto text-xs font-medium ${trade.pnl > 0 ? 'text-profit' : trade.pnl < 0 ? 'text-loss' : 'text-gray-400'}`}>
+                          {trade.pnl > 0 ? '+$' : trade.pnl < 0 ? '-$' : '$'}{Math.abs(trade.pnl).toFixed(2)}
                         </span>
                       </Command.Item>
                     ))}
