@@ -218,7 +218,7 @@ export default function Sidebar() {
       </nav>
 
       {/* ─── Lower Menu & Profile ─── */}
-      <div className="px-2.5 py-2.5 border-t border-white/[0.06] space-y-2 shrink-0 bg-black/20">
+      <div className="mt-auto px-2.5 py-2.5 border-t border-white/[0.06] space-y-2 shrink-0 bg-black/20">
         {bottomItems.map((item) => {
           const isActive = pathname === item.href;
           const Icon = item.icon;
