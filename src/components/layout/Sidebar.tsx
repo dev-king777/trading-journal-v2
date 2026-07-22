@@ -19,7 +19,6 @@ import {
   Search,
   Command,
   Sparkles,
-  User,
   ShieldCheck,
 } from 'lucide-react';
 import { useSettingsStore } from '@/lib/store';
@@ -68,8 +67,8 @@ export default function Sidebar() {
         width: sidebarCollapsed ? 68 : 260,
       }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-      className="fixed left-3 top-3 bottom-3 z-50 flex flex-col rounded-2xl border border-yellow-500/20 bg-[#0e0e11]/85 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
-      style={{ boxShadow: '0 0 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05)' }}
+      className="fixed left-3 top-3 bottom-3 z-50 flex flex-col rounded-2xl border border-white/[0.08] bg-[#09090b]/95 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
+      style={{ boxShadow: '0 0 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04)' }}
     >
       {/* ─── Header / Brand ─── */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-white/[0.06] shrink-0">
@@ -78,10 +77,10 @@ export default function Sidebar() {
           className="relative flex-shrink-0 group cursor-pointer focus:outline-none"
           title="Toggle Navigation (Ctrl+B)"
         >
-          <div className="w-9 h-9 rounded-xl bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center transition-transform group-hover:scale-105">
-            <Sparkles className="w-4 h-4 text-yellow-500 animate-pulse" />
+          <div className="w-9 h-9 rounded-xl bg-accent-blue/10 border border-accent-blue/20 flex items-center justify-center transition-transform group-hover:scale-105">
+            <Sparkles className="w-4 h-4 text-accent-blue animate-pulse" />
           </div>
-          <div className="absolute -inset-1 rounded-xl bg-yellow-500/20 opacity-0 group-hover:opacity-100 blur-md transition-opacity" />
+          <div className="absolute -inset-1 rounded-xl bg-accent-blue/20 opacity-0 group-hover:opacity-100 blur-md transition-opacity" />
         </button>
 
         <AnimatePresence>
@@ -95,13 +94,13 @@ export default function Sidebar() {
             >
               <div className="flex flex-col">
                 <span className="text-sm font-bold tracking-tight text-foreground font-sans flex items-center gap-1.5">
-                  draga<span className="text-yellow-500">4life</span>
+                  draga<span className="text-accent-blue">4life</span>
                 </span>
                 <span className="text-[9px] font-semibold tracking-wider uppercase text-foreground-subtle/60">
                   Trading Journal
                 </span>
               </div>
-              <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+              <span className="px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-accent-blue/10 text-accent-blue border border-accent-blue/20">
                 PRO
               </span>
             </motion.div>
@@ -123,7 +122,7 @@ export default function Sidebar() {
           }}
           title={sidebarCollapsed ? 'Search (Cmd+K)' : undefined}
         >
-          <Search className="w-4 h-4 flex-shrink-0 text-yellow-500/70" />
+          <Search className="w-4 h-4 flex-shrink-0 text-foreground-subtle" />
           <AnimatePresence>
             {!sidebarCollapsed && (
               <motion.div
@@ -150,7 +149,7 @@ export default function Sidebar() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="px-2 mb-2 text-[10px] font-bold uppercase tracking-widest text-yellow-500/50"
+              className="px-2 mb-2 text-[10px] font-bold uppercase tracking-widest text-foreground-subtle/50"
             >
               Navigation
             </motion.p>
@@ -170,7 +169,7 @@ export default function Sidebar() {
                   sidebarCollapsed ? 'p-2.5 justify-center' : 'px-3 py-2.5'
                 } ${
                   isActive
-                    ? 'bg-yellow-500/10 text-yellow-400 font-semibold border border-yellow-500/25 shadow-[0_0_15px_rgba(234,179,8,0.1)]'
+                    ? 'bg-accent-blue/10 text-accent-blue font-semibold border border-accent-blue/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
                     : 'text-foreground-subtle hover:text-foreground hover:bg-white/[0.04]'
                 }`}
               >
@@ -178,11 +177,11 @@ export default function Sidebar() {
                 {isActive && (
                   <motion.div
                     layoutId="active-nav-indicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-yellow-500 rounded-r-full shadow-[0_0_10px_rgba(234,179,8,0.8)]"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-accent-blue rounded-r-full shadow-[0_0_10px_rgba(59,130,246,0.8)]"
                   />
                 )}
 
-                <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-yellow-400' : ''}`} />
+                <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-accent-blue' : ''}`} />
 
                 <AnimatePresence>
                   {!sidebarCollapsed && (
@@ -200,16 +199,16 @@ export default function Sidebar() {
 
                 {/* Badge if available */}
                 {item.badge && !sidebarCollapsed && (
-                  <span className="ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                  <span className="ml-auto px-1.5 py-0.5 rounded text-[9px] font-bold bg-accent-blue/20 text-accent-blue border border-accent-blue/30">
                     {item.badge}
                   </span>
                 )}
 
                 {/* Floating Tooltip in Collapsed Mode */}
                 {sidebarCollapsed && (
-                  <div className="absolute left-full ml-3 px-3 py-1.5 rounded-lg bg-[#16161a] text-foreground text-xs font-semibold whitespace-nowrap border border-white/10 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-50 flex items-center gap-1.5">
+                  <div className="absolute left-full ml-3 px-3 py-1.5 rounded-lg bg-[#141416] text-foreground text-xs font-semibold whitespace-nowrap border border-white/10 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-50 flex items-center gap-1.5">
                     <span>{item.label}</span>
-                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />}
+                    {isActive && <span className="w-1.5 h-1.5 rounded-full bg-accent-blue" />}
                   </div>
                 )}
               </div>
@@ -230,11 +229,11 @@ export default function Sidebar() {
                   sidebarCollapsed ? 'p-2.5 justify-center' : 'px-3 py-2'
                 } ${
                   isActive
-                    ? 'bg-yellow-500/10 text-yellow-400 font-semibold border border-yellow-500/25'
+                    ? 'bg-accent-blue/10 text-accent-blue font-semibold border border-accent-blue/20'
                     : 'text-foreground-subtle hover:text-foreground hover:bg-white/[0.04]'
                 }`}
               >
-                <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-yellow-400' : ''}`} />
+                <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-accent-blue' : ''}`} />
                 <AnimatePresence>
                   {!sidebarCollapsed && (
                     <motion.span
@@ -249,7 +248,7 @@ export default function Sidebar() {
                 </AnimatePresence>
 
                 {sidebarCollapsed && (
-                  <div className="absolute left-full ml-3 px-3 py-1.5 rounded-lg bg-[#16161a] text-foreground text-xs font-semibold whitespace-nowrap border border-white/10 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-50">
+                  <div className="absolute left-full ml-3 px-3 py-1.5 rounded-lg bg-[#141416] text-foreground text-xs font-semibold whitespace-nowrap border border-white/10 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-50">
                     {item.label}
                   </div>
                 )}
@@ -266,7 +265,7 @@ export default function Sidebar() {
             }`}
           >
             <div className="relative flex-shrink-0">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-yellow-500/20 to-yellow-600/30 border border-yellow-500/40 flex items-center justify-center text-yellow-400 font-bold text-xs">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-accent-blue/20 to-accent-purple/30 border border-accent-blue/30 flex items-center justify-center text-accent-blue font-bold text-xs">
                 DT
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-black" />
@@ -281,7 +280,7 @@ export default function Sidebar() {
                   className="flex flex-col overflow-hidden whitespace-nowrap"
                 >
                   <span className="text-xs font-bold text-foreground flex items-center gap-1">
-                    Draga Trader <ShieldCheck className="w-3 h-3 text-yellow-500" />
+                    Draga Trader <ShieldCheck className="w-3 h-3 text-accent-blue" />
                   </span>
                   <span className="text-[9px] text-foreground-subtle/70 font-mono">
                     ICT / SMC Trader
@@ -292,8 +291,8 @@ export default function Sidebar() {
           </div>
 
           {sidebarCollapsed && (
-            <div className="absolute left-full ml-3 px-3 py-2 rounded-xl bg-[#16161a] text-foreground border border-white/10 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-50 flex flex-col gap-0.5 whitespace-nowrap">
-              <span className="text-xs font-bold text-yellow-400">Draga Trader</span>
+            <div className="absolute left-full ml-3 px-3 py-2 rounded-xl bg-[#141416] text-foreground border border-white/10 shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity duration-200 z-50 flex flex-col gap-0.5 whitespace-nowrap">
+              <span className="text-xs font-bold text-accent-blue">Draga Trader</span>
               <span className="text-[10px] text-foreground-subtle">ICT / SMC Pro</span>
             </div>
           )}
@@ -309,9 +308,9 @@ export default function Sidebar() {
         >
           <div className="flex items-center gap-2">
             {sidebarCollapsed ? (
-              <ChevronRight className="w-4 h-4 text-yellow-500" />
+              <ChevronRight className="w-4 h-4 text-accent-blue" />
             ) : (
-              <ChevronLeft className="w-4 h-4 text-yellow-500" />
+              <ChevronLeft className="w-4 h-4 text-accent-blue" />
             )}
             <AnimatePresence>
               {!sidebarCollapsed && (
