@@ -80,15 +80,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pageTitle = pageTitles[pathname] || 'Trade Detail';
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans">
+    <div className="min-h-screen bg-background">
       <Sidebar />
       <CommandPalette />
       <Toaster
         position="bottom-right"
         toastOptions={{
           style: {
-            background: '#141416',
-            border: '1px solid #262626',
+            background: '#111113',
+            border: '1px solid #27272A',
             color: '#FAFAFA',
             borderRadius: '12px',
           },
@@ -104,7 +104,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         className="min-h-screen"
       >
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-8 border-b border-neutral-800/80 bg-neutral-950/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-8 border-b border-border-subtle bg-background/80 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <h1 className="text-lg font-semibold text-foreground">{pageTitle}</h1>
           </div>

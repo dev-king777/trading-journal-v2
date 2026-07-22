@@ -314,30 +314,28 @@ body {
   color: #52525B;
 }
 
-/* Premium button - Gold/Yellow Theme Accent */
+/* Premium button */
 .btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   padding: 10px 20px;
-  background: #EAB308;
-  color: #000000;
+  background: linear-gradient(135deg, #3B82F6 0%, #6366F1 100%);
+  color: white;
   font-weight: 600;
   font-size: 14px;
   border-radius: 10px;
-  border: 1px solid rgba(234, 179, 8, 0.4);
+  border: none;
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(234, 179, 8, 0.2);
 }
 
 .btn-primary:hover {
-  background: #FACC15;
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(234, 179, 8, 0.3);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
 }
 
 .btn-primary:active {
@@ -350,19 +348,19 @@ body {
   justify-content: center;
   gap: 8px;
   padding: 10px 20px;
-  background: #171717;
+  background: #18181B;
   color: #FAFAFA;
   font-weight: 500;
   font-size: 14px;
   border-radius: 10px;
-  border: 1px solid #262626;
+  border: 1px solid #27272A;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn-secondary:hover {
-  background: #262626;
-  border-color: #404040;
+  background: #27272A;
+  border-color: #3F3F46;
 }
 
 /* Badge */
@@ -377,21 +375,21 @@ body {
 }
 
 .badge-win {
-  background: rgba(16, 185, 129, 0.1);
-  color: #34D399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(34, 197, 94, 0.12);
+  color: #22C55E;
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
 
 .badge-loss {
-  background: rgba(244, 63, 94, 0.1);
-  color: #FB7185;
-  border: 1px solid rgba(244, 63, 94, 0.3);
+  background: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .badge-breakeven {
   background: rgba(245, 158, 11, 0.12);
   color: #F59E0B;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 /* Stat card gradient overlays */
