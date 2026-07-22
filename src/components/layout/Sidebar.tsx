@@ -68,7 +68,7 @@ export default function Sidebar() {
         width: sidebarCollapsed ? 68 : 260,
       }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-      className="fixed left-3 top-3 bottom-3 z-50 flex flex-col rounded-2xl border border-yellow-500/20 bg-[#0e0e11]/85 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
+      className="fixed left-3 top-3 bottom-3 z-50 flex flex-col rounded-2xl border border-neutral-800 bg-neutral-900/90 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
       style={{ boxShadow: '0 0 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05)' }}
     >
       {/* ─── Header / Brand ─── */}
@@ -170,7 +170,7 @@ export default function Sidebar() {
                   sidebarCollapsed ? 'p-2.5 justify-center' : 'px-3 py-2.5'
                 } ${
                   isActive
-                    ? 'bg-yellow-500/10 text-yellow-400 font-semibold border border-yellow-500/25 shadow-[0_0_15px_rgba(234,179,8,0.1)]'
+                    ? 'bg-yellow-500/10 text-yellow-400 font-semibold border border-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.15)]'
                     : 'text-foreground-subtle hover:text-foreground hover:bg-white/[0.04]'
                 }`}
               >

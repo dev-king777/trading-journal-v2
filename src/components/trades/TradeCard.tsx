@@ -51,8 +51,8 @@ export default function TradeCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03, duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
-      className={`group relative rounded-2xl overflow-hidden bg-card border transition-all duration-200 hover:shadow-xl hover:shadow-black/20 ${
-        isSelected ? 'border-accent-blue bg-accent-blue/5 ring-1 ring-accent-blue/30' : 'border-border-subtle hover:border-white/15'
+      className={`group relative rounded-2xl overflow-hidden bg-neutral-900/90 border transition-all duration-200 hover:shadow-xl hover:shadow-black/40 ${
+        isSelected ? 'border-yellow-500/60 bg-yellow-500/5 ring-1 ring-yellow-500/30' : 'border-neutral-800 hover:border-yellow-500/30'
       }`}
     >
       {/* Selection Checkbox */}
@@ -65,32 +65,32 @@ export default function TradeCard({
           }}
           className={`absolute top-3 left-3 z-20 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
             isSelected
-              ? 'bg-accent-blue border-accent-blue text-white'
+              ? 'bg-yellow-500 border-yellow-500 text-black font-bold'
               : 'border-white/30 bg-black/60 backdrop-blur-sm hover:border-white/60'
           }`}
         >
-          {isSelected && <span className="text-[10px] font-bold">✓</span>}
+          {isSelected && <span className="text-[10px]">✓</span>}
         </button>
       )}
 
       <Link href={`/trades/${trade.id}`} className="block">
-        {/* Large Screenshot Header Image (h-56 instead of h-36 for major prominence) */}
-        <div className="relative w-full h-56 bg-black/20 overflow-hidden border-b border-white/[0.04]">
+        {/* Large Screenshot Header Image */}
+        <div className="relative w-full h-56 bg-black/40 overflow-hidden border-b border-neutral-800">
           <img
             src={chartUrl}
             alt={`${trade.pair} chart`}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent" />
           
           {/* Overlaid badges */}
           <div className="absolute top-3 right-3 z-10">
-            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider backdrop-blur-md ${
               trade.pnl > 0
-                ? 'bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30'
+                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
                 : trade.pnl < 0
-                ? 'bg-[#ef4444]/20 text-[#ef4444] border border-[#ef4444]/30'
+                ? 'bg-rose-500/10 border border-rose-500/30 text-rose-400'
                 : 'bg-white/10 text-gray-400 border border-white/10'
             }`}>
               {trade.pnl > 0 ? 'WIN' : trade.pnl < 0 ? 'LOSS' : 'BREAKEVEN'}
@@ -98,25 +98,27 @@ export default function TradeCard({
           </div>
           
           <div className="absolute top-3 left-3 z-10">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center backdrop-blur-sm ${
-              trade.direction === 'Long' ? 'bg-[#22c55e]/20 text-[#22c55e]' : 'bg-[#ef4444]/20 text-[#ef4444]'
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center backdrop-blur-md ${
+              trade.direction === 'Long'
+                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                : 'bg-rose-500/10 border border-rose-500/30 text-rose-400'
             }`}>
               {trade.direction === 'Long' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
             </div>
           </div>
         </div>
 
-        {/* Minimal Content Body — Clean product details card */}
+        {/* Minimal Content Body */}
         <div className="p-4 space-y-2">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-foreground group-hover:text-accent-blue transition-colors tracking-tight">{trade.pair}</h3>
+              <h3 className="text-base font-bold text-foreground group-hover:text-yellow-400 transition-colors tracking-tight">{trade.pair}</h3>
               <p className="text-[11px] text-foreground-subtle">{trade.strategy} · {trade.timeframe}</p>
             </div>
             
             <div className="text-right">
               <p className={`text-base font-bold tabular-nums ${
-                trade.pnl > 0 ? 'text-[#22c55e]' : trade.pnl < 0 ? 'text-[#ef4444]' : 'text-gray-400'
+                trade.pnl > 0 ? 'text-emerald-400' : trade.pnl < 0 ? 'text-rose-400' : 'text-gray-400'
               }`}>
                 {trade.pnl > 0 ? '+$' : trade.pnl < 0 ? '-$' : '$'}{Math.abs(trade.pnl).toFixed(2)}
               </p>

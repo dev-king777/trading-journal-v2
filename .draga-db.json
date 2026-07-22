@@ -1,3 +1,3 @@
 {
-  "trading-journal-moods": "{\"state\":{\"moodEntries\":[{\"id\":\"1784679438558-lasfp70\",\"date\":\"2026-07-22T00:17:18.558Z\",\"mood\":\"Calm\",\"disciplineScore\":8,\"fearScore\":2,\"greedScore\":3,\"confidenceScore\":9,\"notes\":\"Excellent day following all rules.\",\"reflection\":\"Patience paid off.\"}],\"initialized\":true},\"version\":0}"
+  "trading-journal-settings": "{\"state\":{\"settings\":{\"theme\":\"dark\",\"currency\":\"USD\",\"timezone\":\"UTC\",\"language\":\"en\",\"defaultMarket\":\"Forex\",\"defaultTimeframe\":\"15m\",\"riskPerTrade\":1},\"sidebarCollapsed\":true},\"version\":0}"
 }

@@ -6,9 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, BookOpen, TrendingUp, Brain, X } from 'lucide-react';
 
 const actions = [
-  { label: 'New Trade', icon: TrendingUp, href: '/trades/new', color: '#3B82F6' },
-  { label: 'Journal Entry', icon: BookOpen, href: '/journal', color: '#8B5CF6' },
-  { label: 'Mood Check', icon: Brain, href: '/psychology', color: '#10B981' },
+  { label: 'New Trade', icon: TrendingUp, href: '/trades/new', color: '#EAB308', textColor: '#000000' },
+  { label: 'Journal Entry', icon: BookOpen, href: '/journal', color: '#18181B', textColor: '#FAFAFA' },
+  { label: 'Mood Check', icon: Brain, href: '/psychology', color: '#18181B', textColor: '#FAFAFA' },
 ];
 
 export default function FloatingActionButton() {
@@ -16,22 +16,21 @@ export default function FloatingActionButton() {
 
   return (
     <div className="fixed bottom-8 right-8 z-50 flex flex-col-reverse items-end gap-3">
-      {/* Main FAB */}
+      {/* Main FAB - Gold/Yellow Theme Accent */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setExpanded((e) => !e)}
-        className="relative w-14 h-14 rounded-2xl gradient-blue flex items-center justify-center shadow-lg cursor-pointer"
-        style={{ boxShadow: '0 4px 24px rgba(59, 130, 246, 0.3)' }}
+        className="relative w-14 h-14 rounded-2xl bg-yellow-500 hover:bg-yellow-400 text-black flex items-center justify-center shadow-lg shadow-yellow-500/20 border border-yellow-400/50 cursor-pointer transition-colors"
       >
         <motion.div
           animate={{ rotate: expanded ? 45 : 0 }}
           transition={{ duration: 0.2 }}
         >
           {expanded ? (
-            <X className="w-6 h-6 text-white" />
+            <X className="w-6 h-6 text-black" />
           ) : (
-            <Plus className="w-6 h-6 text-white" />
+            <Plus className="w-6 h-6 text-black" />
           )}
         </motion.div>
       </motion.button>
@@ -59,14 +58,14 @@ export default function FloatingActionButton() {
                   onClick={() => setExpanded(false)}
                   className="flex items-center gap-3 group"
                 >
-                  <span className="px-3 py-1.5 rounded-lg glass text-xs font-medium text-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                  <span className="px-3 py-1.5 rounded-lg bg-neutral-900/90 border border-neutral-800 text-xs font-semibold text-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl">
                     {action.label}
                   </span>
                   <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg transition-transform hover:scale-105"
-                    style={{ background: action.color }}
+                    className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg border border-white/10 transition-transform hover:scale-105"
+                    style={{ background: action.color, color: action.textColor }}
                   >
-                    <action.icon className="w-5 h-5 text-white" />
+                    <action.icon className="w-5 h-5" />
                   </div>
                 </Link>
               </motion.div>
