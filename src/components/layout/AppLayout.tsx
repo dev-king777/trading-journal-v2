@@ -98,7 +98,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <motion.main
         initial={false}
         animate={{
-          marginLeft: sidebarCollapsed ? 72 : 260,
+          marginLeft: sidebarCollapsed ? 80 : 274,
         }}
         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
         className="min-h-screen"
