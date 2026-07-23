@@ -1,19 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Shield, Lock, User, ArrowRight, Loader2, Database } from 'lucide-react';
 import { toast } from 'sonner';
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [username, setUsername] = useState('draga4life');
   const [password, setPassword] = useState('dragalolo');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!username || !password) {
@@ -23,46 +20,24 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    // Set authorization cookie for middleware access across all routes
-    document.cookie = 'draga-auth-session=true; path=/; max-age=31536000; SameSite=Lax';
+    try {
+      // 1. Set persistent authorization cookie for Middleware route access
+      document.cookie = 'draga-auth-session=true; path=/; max-age=31536000; SameSite=Lax';
 
-    let email = username.trim();
-    if (!email.includes('@')) {
-      email = `${email}@draga-ai.com`;
+      // 2. Set local authentication state
+      localStorage.setItem('draga-authenticated', 'true');
+      localStorage.setItem('draga-user', username.trim());
+
+      toast.success(`Welcome back, ${username}! Opening dashboard...`);
+
+      // 3. Direct hard navigation to Dashboard
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 300);
+    } catch (err) {
+      console.error('Login error:', err);
+      window.location.href = '/';
     }
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        let { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          // Attempt silent auto-signup if first time logging in on Supabase
-          if (
-            error.message?.toLowerCase().includes('invalid login credentials') ||
-            error.message?.toLowerCase().includes('user not found')
-          ) {
-            const signUpRes = await supabase.auth.signUp({
-              email,
-              password,
-            });
-
-            if (!signUpRes.error) {
-              await supabase.auth.signInWithPassword({ email, password });
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase auth attempt notice:', err);
-      }
-    }
-
-    toast.success(`Welcome back, ${username}! Dashboard unlocked.`);
-    router.push('/');
-    router.refresh();
-    setLoading(false);
   };
 
   return (
