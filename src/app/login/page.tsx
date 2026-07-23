@@ -6,8 +6,8 @@ import { Shield, Lock, User, ArrowRight, Loader2, Database } from 'lucide-react'
 import { toast } from 'sonner';
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('draga4life');
-  const [password, setPassword] = useState('dragalolo');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -15,6 +15,15 @@ export default function LoginPage() {
 
     if (!username || !password) {
       toast.error('Please enter both username and password.');
+      return;
+    }
+
+    const cleanUser = username.trim();
+    const cleanPass = password.trim();
+
+    // Verify credentials
+    if (cleanUser.toLowerCase() !== 'draga4life' || cleanPass !== 'dragalolo') {
+      toast.error('Invalid username or password. Access denied.');
       return;
     }
 
@@ -26,9 +35,9 @@ export default function LoginPage() {
 
       // 2. Set local authentication state
       localStorage.setItem('draga-authenticated', 'true');
-      localStorage.setItem('draga-user', username.trim());
+      localStorage.setItem('draga-user', cleanUser);
 
-      toast.success(`Welcome back, ${username}! Opening dashboard...`);
+      toast.success(`Welcome back, ${cleanUser}! Opening dashboard...`);
 
       // 3. Direct hard navigation to Dashboard
       setTimeout(() => {
@@ -80,7 +89,7 @@ export default function LoginPage() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="draga4life"
+                placeholder="Enter username"
                 className="w-full h-12 bg-neutral-950 border border-neutral-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white font-medium focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
@@ -99,7 +108,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="dragalolo"
+                placeholder="Enter password"
                 className="w-full h-12 bg-neutral-950 border border-neutral-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white font-medium focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
