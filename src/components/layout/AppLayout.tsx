@@ -74,10 +74,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleLogout = async () => {
+    document.cookie = 'draga-auth-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     if (isSupabaseConfigured && supabase) {
-      await supabase.auth.signOut();
-      window.location.href = '/login';
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {}
     }
+    window.location.href = '/login';
   };
 
   if (pathname === '/login') {

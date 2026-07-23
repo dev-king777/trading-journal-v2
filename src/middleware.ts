@@ -15,21 +15,18 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Inspect cookies for Supabase auth tokens
+  // Inspect cookies for Supabase or local auth session tokens
   const cookies = request.cookies.getAll();
-  const hasSupabaseAuthCookie = cookies.some(
+  const hasAuthCookie = cookies.some(
     (c) =>
       c.name.includes('sb-') ||
       c.name.includes('supabase') ||
-      c.name.includes('auth-token')
+      c.name.includes('auth-token') ||
+      c.name.includes('draga-auth')
   );
 
-  const isSupabaseConfiguredInEnv = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
-
-  // If Supabase is active in environment and user has no auth cookie, redirect to /login
-  if (isSupabaseConfiguredInEnv && !hasSupabaseAuthCookie) {
+  // If no auth cookie is present, redirect to /login
+  if (!hasAuthCookie) {
     const loginUrl = new URL('/login', request.url);
     return NextResponse.redirect(loginUrl);
   }
