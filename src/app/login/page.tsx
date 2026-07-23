@@ -30,8 +30,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // 1. Set persistent authorization cookie for Middleware route access
-      document.cookie = 'draga-auth-session=true; path=/; max-age=31536000; SameSite=Lax';
+      // 1. Set persistent authorization cookies for Middleware route access (supports HTTPS & Mobile Safari/Chrome)
+      const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+      const cookieOptions = `; path=/; max-age=31536000; SameSite=Lax${isHttps ? '; Secure' : ''}`;
+      
+      document.cookie = `draga-auth-session=true${cookieOptions}`;
+      document.cookie = `sb-auth-token=true${cookieOptions}`;
 
       // 2. Set local authentication state
       localStorage.setItem('draga-authenticated', 'true');
@@ -39,13 +43,11 @@ export default function LoginPage() {
 
       toast.success(`Welcome back, ${cleanUser}! Opening dashboard...`);
 
-      // 3. Direct hard navigation to Dashboard
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 300);
+      // 3. Immediate synchronous navigation to Dashboard for mobile compatibility
+      window.location.replace('/');
     } catch (err) {
       console.error('Login error:', err);
-      window.location.href = '/';
+      window.location.replace('/');
     }
   };
 
