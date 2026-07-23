@@ -40,6 +40,7 @@ import { generateSampleTrades, generateSampleJournalEntries } from './sample-dat
 import { generateId } from './utils';
 import { isSupabaseConfigured, supabase } from './supabase';
 export { isSupabaseConfigured, supabase };
+import { toast } from 'sonner';
 import {
   startOfDay, startOfWeek, startOfMonth,
   isAfter, isSameDay
@@ -1200,12 +1201,13 @@ export const useSettingsStore = create<SettingsStore>()(
 
 export const initializeAllStores = async () => {
   if (!isSupabaseConfigured) {
-    // Local DB mode uses customStorage with Zustand persist middleware.
-    // Rehydration happens automatically via customStorage asynchronously.
     return;
   }
 
   try {
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+
     const [tradesRes, journalRes, goalsRes, moodRes, habitsRes] = await Promise.all([
       supabase.from('trades').select('*').order('date', { ascending: false }),
       supabase.from('journal_entries').select('*').order('date', { ascending: false }),
@@ -1214,12 +1216,90 @@ export const initializeAllStores = async () => {
       supabase.from('habits').select('*').order('created_at', { ascending: true }),
     ]);
 
-    if (tradesRes.data) {
-      useTradeStore.setState({ trades: tradesRes.data.map(mapTradeFromDb), initialized: true });
+    let remoteTrades = tradesRes.data ? tradesRes.data.map(mapTradeFromDb) : [];
+    let remoteJournal = journalRes.data ? journalRes.data.map(mapJournalFromDb) : [];
+
+    // Migration of local database (.draga-db.json) data into Supabase for authenticated user
+    if (userId) {
+      try {
+        let localTrades: Trade[] = [];
+        let localEntries: JournalEntry[] = [];
+
+        // 1. Fetch from local-db API (.draga-db.json)
+        try {
+          const tRes = await fetch('/api/local-db?key=trading-journal-trades');
+          if (tRes.ok) {
+            const tJson = await tRes.json();
+            if (tJson.value) {
+              const parsed = JSON.parse(tJson.value);
+              localTrades = parsed.state?.trades || [];
+            }
+          }
+          const jRes = await fetch('/api/local-db?key=trading-journal-entries');
+          if (jRes.ok) {
+            const jJson = await jRes.json();
+            if (jJson.value) {
+              const parsed = JSON.parse(jJson.value);
+              localEntries = parsed.state?.entries || [];
+            }
+          }
+        } catch (e) {
+          console.error('Error fetching local DB file:', e);
+        }
+
+        // 2. Fallback to localStorage
+        if (localTrades.length === 0 && typeof window !== 'undefined') {
+          const l = localStorage.getItem('trading-journal-trades');
+          if (l) localTrades = JSON.parse(l)?.state?.trades || [];
+        }
+        if (localEntries.length === 0 && typeof window !== 'undefined') {
+          const l = localStorage.getItem('trading-journal-entries');
+          if (l) localEntries = JSON.parse(l)?.state?.entries || [];
+        }
+
+        // 3. Migrate Local Trades
+        const remoteTradeIds = new Set(remoteTrades.map((t: Trade) => t.id));
+        const tradesToMigrate = localTrades.filter((t: Trade) => !remoteTradeIds.has(t.id));
+
+        if (tradesToMigrate.length > 0) {
+          console.log(`Migrating ${tradesToMigrate.length} local trades to Supabase...`);
+          const dbRows = tradesToMigrate.map((t: Trade) => ({
+            ...mapTradeToDb(t),
+            user_id: userId,
+          }));
+
+          const { error: insertErr } = await supabase.from('trades').upsert(dbRows, { onConflict: 'id' });
+          if (!insertErr) {
+            remoteTrades = [...tradesToMigrate, ...remoteTrades];
+            toast.success(`Migrated ${tradesToMigrate.length} trades from local dashboard to Supabase Cloud!`);
+          } else {
+            console.error('Supabase trade migration insert error:', insertErr);
+          }
+        }
+
+        // 4. Migrate Local Journal Entries
+        const remoteJournalIds = new Set(remoteJournal.map((j: JournalEntry) => j.id));
+        const journalToMigrate = localEntries.filter((j: JournalEntry) => !remoteJournalIds.has(j.id));
+
+        if (journalToMigrate.length > 0) {
+          const journalRows = journalToMigrate.map((j) => ({
+            ...mapJournalToDb(j),
+            user_id: userId,
+          }));
+
+          const { error: insertJErr } = await supabase.from('journal_entries').upsert(journalRows, { onConflict: 'id' });
+          if (!insertJErr) {
+            remoteJournal = [...journalToMigrate, ...remoteJournal];
+          }
+        }
+      } catch (migrationErr) {
+        console.error('Data migration error:', migrationErr);
+      }
     }
-    if (journalRes.data) {
-      useJournalStore.setState({ entries: journalRes.data.map(mapJournalFromDb), initialized: true });
-    }
+
+    useTradeStore.setState({ trades: remoteTrades, initialized: true });
+    useJournalStore.setState({ entries: remoteJournal, initialized: true });
+
     if (goalsRes.data) {
       useGoalsStore.setState({ goals: goalsRes.data.map(mapGoalFromDb), initialized: true });
     }
@@ -1231,7 +1311,6 @@ export const initializeAllStores = async () => {
     }
   } catch (err) {
     console.error('Failed to load from Supabase:', err);
-    // Fall back to sample data/local if fetching fails
     useTradeStore.getState().initializeWithSampleData();
     useJournalStore.getState().initializeWithSampleData();
     useGoalsStore.getState().initializeWithSampleData();

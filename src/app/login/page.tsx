@@ -10,15 +10,15 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('draga4life');
+  const [password, setPassword] = useState('dragalolo');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email || !password) {
-      toast.error('Please enter both email and password.');
+      toast.error('Please enter both username/email and password.');
       return;
     }
 
@@ -30,28 +30,57 @@ export default function LoginPage() {
 
     setLoading(true);
 
+    let formattedEmail = email.trim();
+    if (!formattedEmail.includes('@')) {
+      formattedEmail = `${formattedEmail}@draga-ai.com`;
+    }
+
     try {
       if (mode === 'signin') {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
+        let { data, error } = await supabase.auth.signInWithPassword({
+          email: formattedEmail,
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          // If credentials don't exist yet, attempt seamless account creation & login
+          if (error.message?.toLowerCase().includes('invalid login credentials') || error.message?.toLowerCase().includes('user not found')) {
+            const signUpRes = await supabase.auth.signUp({
+              email: formattedEmail,
+              password,
+            });
 
-        toast.success('Successfully logged in!');
+            if (!signUpRes.error) {
+              const retryRes = await supabase.auth.signInWithPassword({
+                email: formattedEmail,
+                password,
+              });
+              if (!retryRes.error) {
+                toast.success('Account initialized and dashboard connected!');
+                router.push('/');
+                router.refresh();
+                return;
+              }
+            }
+          }
+          throw error;
+        }
+
+        toast.success('Successfully logged in! Connecting your dashboard data...');
         router.push('/');
         router.refresh();
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: formattedEmail,
           password,
         });
 
         if (error) throw error;
 
-        toast.success('Account created! Please check your email or log in.');
-        setMode('signin');
+        toast.success('Account created! Connecting dashboard...');
+        await supabase.auth.signInWithPassword({ email: formattedEmail, password });
+        router.push('/');
+        router.refresh();
       }
     } catch (err: any) {
       console.error('Authentication error:', err);
@@ -82,7 +111,7 @@ export default function LoginPage() {
             Draga AI Journal
           </h1>
           <p className="text-sm text-foreground-subtle mt-1">
-            Secure, Cloud-Synced Trading Operations
+            Secure Cloud & Local Dashboard Sync
           </p>
         </div>
 
@@ -116,18 +145,18 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-neutral-300 uppercase tracking-wider mb-2">
-              Email Address
+              Username or Email
             </label>
             <div className="relative">
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500">
                 <Mail className="w-4 h-4" />
               </div>
               <input
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="trader@draga-ai.com"
+                placeholder="draga4life"
                 className="w-full h-12 bg-neutral-950 border border-neutral-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white font-medium focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
@@ -160,11 +189,11 @@ export default function LoginPage() {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                {mode === 'signin' ? 'Authenticating...' : 'Creating Account...'}
+                {mode === 'signin' ? 'Connecting Dashboard...' : 'Initializing Account...'}
               </>
             ) : (
               <>
-                {mode === 'signin' ? 'Access Dashboard' : 'Register Account'}
+                {mode === 'signin' ? 'Connect Dashboard & Sign In' : 'Register & Sync Dashboard'}
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
@@ -176,7 +205,7 @@ export default function LoginPage() {
           {isSupabaseConfigured ? (
             <span className="inline-flex items-center gap-1.5 text-xs text-profit font-medium">
               <Database className="w-3.5 h-3.5" />
-              Supabase Cloud Protection Active
+              Connected to Account: <strong className="text-white">draga4life</strong>
             </span>
           ) : (
             <div className="space-y-2">
