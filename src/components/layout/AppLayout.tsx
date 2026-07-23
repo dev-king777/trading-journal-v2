@@ -138,7 +138,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           marginLeft: isMobile ? 0 : (sidebarCollapsed ? 80 : 274),
         }}
         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-        className="min-h-screen pb-20 md:pb-0"
+        className="w-full min-h-screen pb-24 md:pb-8"
       >
         {/* Top Header */}
         <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 sm:px-8 border-b border-border-subtle bg-background/80 backdrop-blur-xl">

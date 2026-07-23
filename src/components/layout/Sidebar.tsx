@@ -67,7 +67,7 @@ export default function Sidebar() {
         width: sidebarCollapsed ? 68 : 260,
       }}
       transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-      className="fixed left-3 top-3 bottom-3 z-50 flex flex-col rounded-2xl border border-white/[0.08] bg-[#09090b]/95 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
+      className="hidden md:flex fixed left-3 top-3 bottom-3 z-50 flex-col rounded-2xl border border-white/[0.08] bg-[#09090b]/95 backdrop-blur-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] overflow-hidden"
       style={{ boxShadow: '0 0 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.04)' }}
     >
       {/* ─── Header / Brand ─── */}
