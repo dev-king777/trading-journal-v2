@@ -3,88 +3,76 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Shield, Lock, Mail, ArrowRight, Loader2, Database, Key } from 'lucide-react';
+import { Shield, Lock, User, ArrowRight, Loader2, Database } from 'lucide-react';
 import { toast } from 'sonner';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [email, setEmail] = useState('draga4life');
+  const [username, setUsername] = useState('draga4life');
   const [password, setPassword] = useState('dragalolo');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      toast.error('Please enter both username/email and password.');
+    if (!username || !password) {
+      toast.error('Please enter both username and password.');
       return;
     }
 
     if (!isSupabaseConfigured || !supabase) {
-      toast.warning('Supabase env variables are not configured yet. Redirecting to app in local offline mode.');
+      toast.warning('Supabase is not configured. Entering local mode.');
       router.push('/');
       return;
     }
 
     setLoading(true);
 
-    let formattedEmail = email.trim();
-    if (!formattedEmail.includes('@')) {
-      formattedEmail = `${formattedEmail}@draga-ai.com`;
+    let email = username.trim();
+    if (!email.includes('@')) {
+      email = `${email}@draga-ai.com`;
     }
 
     try {
-      if (mode === 'signin') {
-        let { data, error } = await supabase.auth.signInWithPassword({
-          email: formattedEmail,
-          password,
-        });
+      let { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (error) {
-          // If credentials don't exist yet, attempt seamless account creation & login
-          if (error.message?.toLowerCase().includes('invalid login credentials') || error.message?.toLowerCase().includes('user not found')) {
-            const signUpRes = await supabase.auth.signUp({
-              email: formattedEmail,
+      if (error) {
+        // Auto-register user silently if logging in for the first time
+        if (
+          error.message?.toLowerCase().includes('invalid login credentials') ||
+          error.message?.toLowerCase().includes('user not found')
+        ) {
+          const signUpRes = await supabase.auth.signUp({
+            email,
+            password,
+          });
+
+          if (!signUpRes.error) {
+            const retryRes = await supabase.auth.signInWithPassword({
+              email,
               password,
             });
-
-            if (!signUpRes.error) {
-              const retryRes = await supabase.auth.signInWithPassword({
-                email: formattedEmail,
-                password,
-              });
-              if (!retryRes.error) {
-                toast.success('Account initialized and dashboard connected!');
-                router.push('/');
-                router.refresh();
-                return;
-              }
+            if (!retryRes.error) {
+              toast.success('Account authenticated and dashboard synced!');
+              router.push('/');
+              router.refresh();
+              return;
             }
           }
-          throw error;
         }
-
-        toast.success('Successfully logged in! Connecting your dashboard data...');
-        router.push('/');
-        router.refresh();
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email: formattedEmail,
-          password,
-        });
-
-        if (error) throw error;
-
-        toast.success('Account created! Connecting dashboard...');
-        await supabase.auth.signInWithPassword({ email: formattedEmail, password });
-        router.push('/');
-        router.refresh();
+        throw error;
       }
+
+      toast.success('Successfully logged in! Opening dashboard...');
+      router.push('/');
+      router.refresh();
     } catch (err: any) {
       console.error('Authentication error:', err);
-      toast.error(err.message || 'Authentication failed.');
+      toast.error(err.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
@@ -92,7 +80,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-6 relative overflow-hidden">
-      {/* Ambient background glows */}
+      {/* Background Glows */}
       <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -111,51 +99,25 @@ export default function LoginPage() {
             Draga AI Journal
           </h1>
           <p className="text-sm text-foreground-subtle mt-1">
-            Secure Cloud & Local Dashboard Sync
+            Sign in to access your dashboard & trade logs
           </p>
         </div>
 
-        {/* Mode Switch Tabs */}
-        <div className="grid grid-cols-2 gap-1 p-1 bg-neutral-950 rounded-xl border border-neutral-800 mb-6">
-          <button
-            type="button"
-            onClick={() => setMode('signin')}
-            className={`py-2.5 text-xs font-semibold rounded-lg transition-all ${
-              mode === 'signin'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('signup')}
-            className={`py-2.5 text-xs font-semibold rounded-lg transition-all ${
-              mode === 'signup'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            Create Account
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Login Form */}
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-xs font-semibold text-neutral-300 uppercase tracking-wider mb-2">
-              Username or Email
+              Username
             </label>
             <div className="relative">
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-500">
-                <Mail className="w-4 h-4" />
+                <User className="w-4 h-4" />
               </div>
               <input
                 type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 placeholder="draga4life"
                 className="w-full h-12 bg-neutral-950 border border-neutral-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white font-medium focus:border-blue-500 focus:outline-none transition-colors"
               />
@@ -175,7 +137,7 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
+                placeholder="dragalolo"
                 className="w-full h-12 bg-neutral-950 border border-neutral-800 rounded-xl py-3 pl-10 pr-4 text-sm text-white font-medium focus:border-blue-500 focus:outline-none transition-colors"
               />
             </div>
@@ -184,43 +146,28 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-12 mt-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-[0.99] disabled:opacity-50"
+            className="w-full h-12 mt-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20 active:scale-[0.99] disabled:opacity-50"
           >
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                {mode === 'signin' ? 'Connecting Dashboard...' : 'Initializing Account...'}
+                Signing In...
               </>
             ) : (
               <>
-                {mode === 'signin' ? 'Connect Dashboard & Sign In' : 'Register & Sync Dashboard'}
+                Sign In to Dashboard
                 <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </form>
 
-        {/* Status Footer */}
+        {/* Footer */}
         <div className="mt-6 pt-5 border-t border-border-subtle text-center">
-          {isSupabaseConfigured ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-profit font-medium">
-              <Database className="w-3.5 h-3.5" />
-              Connected to Account: <strong className="text-white">draga4life</strong>
-            </span>
-          ) : (
-            <div className="space-y-2">
-              <span className="inline-flex items-center gap-1.5 text-xs text-yellow-400 font-medium">
-                <Key className="w-3.5 h-3.5" />
-                Environment Variables Required for Production Auth
-              </span>
-              <button
-                onClick={() => router.push('/')}
-                className="block text-xs text-blue-400 hover:underline mx-auto mt-1"
-              >
-                Continue in Local Mode &rarr;
-              </button>
-            </div>
-          )}
+          <span className="inline-flex items-center gap-1.5 text-xs text-profit font-medium">
+            <Database className="w-3.5 h-3.5" />
+            Supabase Protected Environment
+          </span>
         </div>
       </motion.div>
     </div>
