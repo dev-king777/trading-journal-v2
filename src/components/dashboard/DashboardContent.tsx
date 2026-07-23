@@ -11,6 +11,7 @@ import { useTradeStore } from '@/lib/store';
 import { getGreeting } from '@/lib/utils';
 import StatCard from '@/components/dashboard/StatCard';
 import RecentTrades from '@/components/dashboard/RecentTrades';
+import LotSizeCalculator from '@/components/LotSizeCalculator';
 
 const PnlChart = dynamic(() => import('@/components/dashboard/PnlChart'), { ssr: false });
 const CalendarHeatmap = dynamic(() => import('@/components/dashboard/CalendarHeatmap'), { ssr: false });
@@ -220,65 +221,77 @@ export default function DashboardContent() {
       {/* Calendar */}
       <CalendarHeatmap trades={trades} />
 
-      {/* Recent Trades */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Recent Trades & Calculator Column */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         <RecentTrades trades={trades} />
         
-        {/* Journal Preview */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.45, duration: 0.5 }}
-          className="rounded-2xl bg-card border border-border-subtle p-6"
-        >
-          <h3 className="text-base font-semibold text-foreground mb-1">Trading Quote</h3>
-          <p className="text-sm text-foreground-subtle mb-5">Daily inspiration</p>
-          <div className="relative p-6 rounded-xl bg-gradient-to-br from-accent-blue/5 to-accent-purple/5 border border-white/[0.04]">
-            <div className="text-4xl text-accent-blue/20 absolute top-3 left-4">&ldquo;</div>
-            <blockquote className="text-[15px] text-foreground/90 leading-relaxed italic pl-4">
-              The goal of a successful trader is to make the best trades. Money is secondary.
-            </blockquote>
-            <p className="text-sm text-foreground-subtle mt-4 pl-4">— Alexander Elder</p>
-          </div>
+        {/* Right Column: Quote + Lot Size Calculator */}
+        <div className="space-y-4 w-full">
+          {/* Journal Preview */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45, duration: 0.5 }}
+            className="rounded-2xl bg-card border border-border-subtle p-6"
+          >
+            <h3 className="text-base font-semibold text-foreground mb-1">Trading Quote</h3>
+            <p className="text-sm text-foreground-subtle mb-5">Daily inspiration</p>
+            <div className="relative p-6 rounded-xl bg-gradient-to-br from-accent-blue/5 to-accent-purple/5 border border-white/[0.04]">
+              <div className="text-4xl text-accent-blue/20 absolute top-3 left-4">&ldquo;</div>
+              <blockquote className="text-[15px] text-foreground/90 leading-relaxed italic pl-4">
+                The goal of a successful trader is to make the best trades. Money is secondary.
+              </blockquote>
+              <p className="text-sm text-foreground-subtle mt-4 pl-4">— Alexander Elder</p>
+            </div>
 
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-3 mt-5">
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-              <p className="text-xs text-foreground-subtle">Best Strategy</p>
-              <p className="text-sm font-semibold text-foreground mt-1">
-                {trades.length > 0
-                  ? (() => {
-                      const strategyWins: Record<string, number> = {};
-                      trades.filter(t => t.result === 'Win').forEach(t => {
-                        strategyWins[t.strategy] = (strategyWins[t.strategy] || 0) + 1;
-                      });
-                      const entries = Object.entries(strategyWins);
-                      return entries.length > 0
-                        ? entries.sort((a, b) => b[1] - a[1])[0][0]
-                        : 'N/A';
-                    })()
-                  : 'N/A'}
-              </p>
+            {/* Quick Stats */}
+            <div className="grid grid-cols-2 gap-3 mt-5">
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <p className="text-xs text-foreground-subtle">Best Strategy</p>
+                <p className="text-sm font-semibold text-foreground mt-1">
+                  {trades.length > 0
+                    ? (() => {
+                        const strategyWins: Record<string, number> = {};
+                        trades.filter(t => t.result === 'Win').forEach(t => {
+                          strategyWins[t.strategy] = (strategyWins[t.strategy] || 0) + 1;
+                        });
+                        const entries = Object.entries(strategyWins);
+                        return entries.length > 0
+                          ? entries.sort((a, b) => b[1] - a[1])[0][0]
+                          : 'N/A';
+                      })()
+                    : 'N/A'}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <p className="text-xs text-foreground-subtle">Best Session</p>
+                <p className="text-sm font-semibold text-foreground mt-1">
+                  {trades.length > 0
+                    ? (() => {
+                        const sessionPnl: Record<string, number> = {};
+                        trades.forEach(t => {
+                          sessionPnl[t.session] = (sessionPnl[t.session] || 0) + t.pnl;
+                        });
+                        const entries = Object.entries(sessionPnl);
+                        return entries.length > 0
+                          ? entries.sort((a, b) => b[1] - a[1])[0][0]
+                          : 'N/A';
+                      })()
+                    : 'N/A'}
+                </p>
+              </div>
             </div>
-            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-              <p className="text-xs text-foreground-subtle">Best Session</p>
-              <p className="text-sm font-semibold text-foreground mt-1">
-                {trades.length > 0
-                  ? (() => {
-                      const sessionPnl: Record<string, number> = {};
-                      trades.forEach(t => {
-                        sessionPnl[t.session] = (sessionPnl[t.session] || 0) + t.pnl;
-                      });
-                      const entries = Object.entries(sessionPnl);
-                      return entries.length > 0
-                        ? entries.sort((a, b) => b[1] - a[1])[0][0]
-                        : 'N/A';
-                    })()
-                  : 'N/A'}
-              </p>
-            </div>
-          </div>
-        </motion.div>
+          </motion.div>
+
+          {/* XAUUSD Lot Size Calculator Widget */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            <LotSizeCalculator className="w-full" />
+          </motion.div>
+        </div>
       </div>
     </div>
   );
