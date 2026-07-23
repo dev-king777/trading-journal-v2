@@ -147,23 +147,23 @@ export default function AddTradeContent() {
     }
 
     try {
-      toast.loading('Uploading screenshot...', { id: 'upload-toast' });
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      toast.loading('Uploading screenshot to cloud storage...', { id: 'upload-toast' });
+      const fileExt = file.name.split('.').pop() || 'png';
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
       const filePath = `screenshots/${fileName}`;
 
       const { data, error } = await supabase.storage
-        .from('screenshots')
+        .from('trade-screenshots')
         .upload(filePath, file);
 
       if (error) throw error;
 
       const { data: { publicUrl } } = supabase.storage
-        .from('screenshots')
+        .from('trade-screenshots')
         .getPublicUrl(filePath);
 
       setValue('screenshotUrl', publicUrl);
-      toast.success('Screenshot uploaded to Supabase Storage!', { id: 'upload-toast' });
+      toast.success('Screenshot uploaded to cloud storage!', { id: 'upload-toast' });
     } catch (err: any) {
       toast.error(`Upload failed: ${err.message}`, { id: 'upload-toast' });
     }

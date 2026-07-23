@@ -4,16 +4,13 @@ import { create } from 'zustand';
 import { persist, createJSONStorage, StateStorage } from 'zustand/middleware';
 
 // ============================================================
-// Custom Async Storage Engine (Local JSON File via API)
+// Local Storage Engine (Browser LocalStorage Engine)
 // ============================================================
 const customStorage: StateStorage = {
   getItem: async (name: string): Promise<string | null> => {
     if (typeof window === 'undefined') return null;
     try {
-      const res = await fetch(`/api/local-db?key=${name}`);
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.value || null;
+      return localStorage.getItem(name);
     } catch (e) {
       console.error('customStorage getItem error:', e);
       return null;
@@ -22,11 +19,7 @@ const customStorage: StateStorage = {
   setItem: async (name: string, value: string): Promise<void> => {
     if (typeof window === 'undefined') return;
     try {
-      await fetch('/api/local-db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: name, value }),
-      });
+      localStorage.setItem(name, value);
     } catch (e) {
       console.error('customStorage setItem error:', e);
     }
@@ -34,7 +27,7 @@ const customStorage: StateStorage = {
   removeItem: async (name: string): Promise<void> => {
     if (typeof window === 'undefined') return;
     try {
-      await fetch(`/api/local-db?key=${name}`, { method: 'DELETE' });
+      localStorage.removeItem(name);
     } catch (e) {
       console.error('customStorage removeItem error:', e);
     }
