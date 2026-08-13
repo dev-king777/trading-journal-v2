@@ -1489,6 +1489,7 @@ export const useFundedNextStore = create<FundedNextStore>()(
                   notes: 'FundedNext Prop Trade Sync',
                   tags: ['FundedNext', 'PropFirm', 'MCP'],
                   isFavorite: false,
+                  isArchived: false,
                   pnl: t.pnl,
                 });
               }
