@@ -156,6 +156,29 @@ export async function POST(req: Request) {
 
           const tradeDate = t.close_time_str || t.open_time_str || t.created_at || new Date().toISOString();
 
+          let formattedDate = new Date().toISOString();
+          try {
+            if (typeof tradeDate === 'string') {
+              const isoLikeStr = tradeDate.replace(/\./g, '-').replace(' ', 'T');
+              const parsed = new Date(isoLikeStr);
+              if (!isNaN(parsed.getTime())) {
+                formattedDate = parsed.toISOString();
+              } else {
+                const fallback = new Date(tradeDate);
+                if (!isNaN(fallback.getTime())) {
+                  formattedDate = fallback.toISOString();
+                }
+              }
+            } else if (typeof tradeDate === 'number') {
+              const parsed = new Date(tradeDate);
+              if (!isNaN(parsed.getTime())) {
+                formattedDate = parsed.toISOString();
+              }
+            }
+          } catch (e) {
+            console.warn('Error formatting trade date:', tradeDate, e);
+          }
+
           return {
             pair: symbol,
             market: market,
@@ -172,7 +195,7 @@ export async function POST(req: Request) {
             strategy: 'FundedNext Prop Trade',
             setup: 'MT5 Live Execution',
             timeframe: '15m',
-            date: new Date(tradeDate.replace(/\./g, '-')).toISOString(),
+            date: formattedDate,
             duration: '30m',
             rating: profit > 0 ? 5 : 3,
             emotionBefore: 'Calm',

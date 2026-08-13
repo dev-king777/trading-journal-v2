@@ -1421,10 +1421,12 @@ interface FundedNextStore {
   disconnect: () => void;
 }
 
+const DEFAULT_FUNDEDNEXT_TOKEN = '63274516|s3ralgbOwVVfUGudEYWf5e7EeRfpdMBPU3d1GSBsfd0dab93';
+
 export const useFundedNextStore = create<FundedNextStore>()(
   persist(
     (set, get) => ({
-      token: '',
+      token: DEFAULT_FUNDEDNEXT_TOKEN,
       account: null,
       isConnected: false,
       isSyncing: false,
@@ -1432,7 +1434,7 @@ export const useFundedNextStore = create<FundedNextStore>()(
       setToken: (token: string) => set({ token }),
 
       connect: async (tokenInput: string) => {
-        const cleanToken = tokenInput.trim();
+        const cleanToken = (tokenInput || DEFAULT_FUNDEDNEXT_TOKEN).trim();
         if (!cleanToken) {
           toast.error('FundedNext token is required');
           return false;
