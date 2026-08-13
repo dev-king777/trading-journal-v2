@@ -1405,3 +1405,149 @@ export const subscribeToRealtime = () => {
     habitsChannel.unsubscribe();
   };
 };
+
+// ============================================================
+// FundedNext MCP Store
+// ============================================================
+
+interface FundedNextStore {
+  token: string;
+  account: FundedNextAccount | null;
+  isConnected: boolean;
+  isSyncing: boolean;
+  setToken: (token: string) => void;
+  connect: (token: string) => Promise<boolean>;
+  sync: () => Promise<boolean>;
+  disconnect: () => void;
+}
+
+export const useFundedNextStore = create<FundedNextStore>()(
+  persist(
+    (set, get) => ({
+      token: '',
+      account: null,
+      isConnected: false,
+      isSyncing: false,
+
+      setToken: (token: string) => set({ token }),
+
+      connect: async (tokenInput: string) => {
+        const cleanToken = tokenInput.trim();
+        if (!cleanToken) {
+          toast.error('FundedNext token is required');
+          return false;
+        }
+
+        set({ isSyncing: true });
+        try {
+          const res = await fetch('/api/fundednext-mcp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'connect', token: cleanToken }),
+          });
+
+          const data = await res.json();
+          if (data.success && data.account) {
+            set({
+              token: cleanToken,
+              account: data.account,
+              isConnected: true,
+              isSyncing: false,
+            });
+
+            // Automatically import synced trades if returned
+            if (data.trades && Array.isArray(data.trades) && data.trades.length > 0) {
+              const addTrade = useTradeStore.getState().addTrade;
+              for (const t of data.trades) {
+                await addTrade({
+                  pair: t.pair || 'XAUUSD',
+                  market: t.market || 'Commodities',
+                  direction: t.direction || 'Long',
+                  entryPrice: t.entryPrice || 0,
+                  exitPrice: t.exitPrice || 0,
+                  stopLoss: t.stopLoss || 0,
+                  takeProfit: t.takeProfit || 0,
+                  positionSize: t.positionSize || 1,
+                  riskPercent: 1,
+                  rewardPercent: 2,
+                  fees: 0,
+                  session: t.session || 'New York',
+                  strategy: t.strategy || 'FundedNext Trade',
+                  setup: 'FundedNext MCP Sync',
+                  timeframe: t.timeframe || '15m',
+                  date: t.date || new Date().toISOString(),
+                  duration: '45m',
+                  rating: 5,
+                  emotionBefore: 'Calm',
+                  emotionDuring: 'Calm',
+                  emotionAfter: 'Calm',
+                  confidenceLevel: 8,
+                  isMistake: false,
+                  lessonsLearned: 'Synced automatically via FundedNext MCP Server.',
+                  screenshotUrl: '',
+                  tradingViewLink: '',
+                  notes: 'FundedNext Prop Trade Sync',
+                  tags: ['FundedNext', 'PropFirm', 'MCP'],
+                  isFavorite: false,
+                  pnl: t.pnl,
+                });
+              }
+            }
+
+            toast.success('FundedNext MCP Connected Successfully!');
+            return true;
+          } else {
+            toast.error(data.error || 'Failed to connect FundedNext MCP');
+            set({ isSyncing: false });
+            return false;
+          }
+        } catch (err: any) {
+          console.error('FundedNext MCP Connect error:', err);
+          toast.error('Failed to communicate with FundedNext MCP API');
+          set({ isSyncing: false });
+          return false;
+        }
+      },
+
+      sync: async () => {
+        const { token, isConnected } = get();
+        if (!token || !isConnected) return false;
+
+        set({ isSyncing: true });
+        try {
+          const res = await fetch('/api/fundednext-mcp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'sync', token }),
+          });
+
+          const data = await res.json();
+          if (data.success && data.account) {
+            set({
+              account: data.account,
+              isSyncing: false,
+            });
+            toast.success('FundedNext account metrics synced!');
+            return true;
+          } else {
+            set({ isSyncing: false });
+            return false;
+          }
+        } catch (e) {
+          set({ isSyncing: false });
+          return false;
+        }
+      },
+
+      disconnect: () => {
+        set({ token: '', account: null, isConnected: false, isSyncing: false });
+        toast.info('FundedNext MCP account disconnected.');
+      },
+    }),
+    {
+      name: 'draga-fundednext-mcp',
+      storage: createJSONStorage(() => customStorage),
+    }
+  )
+);
+

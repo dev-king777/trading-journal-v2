@@ -211,3 +211,24 @@ export interface Comment {
   createdAt: string;
 }
 
+// ============================================================
+// FundedNext MCP Integration
+// ============================================================
+
+export interface FundedNextAccount {
+  accountNumber: string;
+  accountType: string;
+  balance: number;
+  equity: number;
+  initialBalance: number;
+  profitTarget: number;
+  maxDailyLossLimit: number;
+  currentDailyLoss: number;
+  maxOverallLossLimit: number;
+  currentOverallLoss: number;
+  payoutEligible: boolean;
+  status: 'Passed' | 'Active' | 'Breached' | 'Pending';
+  lastSyncedAt: string;
+}
+
+

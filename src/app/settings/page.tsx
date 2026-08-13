@@ -7,6 +7,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import { useSettingsStore, isSupabaseConfigured } from '@/lib/store';
 import { toast } from 'sonner';
 import { MARKETS, TIMEFRAMES } from '@/lib/types';
+import FundedNextCard from '@/components/fundednext/FundedNextCard';
 
 export default function SettingsPage() {
   const { settings, updateSettings } = useSettingsStore();
@@ -322,6 +323,12 @@ export default function SettingsPage() {
             </button>
           </div>
         </motion.div>
+
+        {/* FundedNext Prop Account MCP Integration */}
+        <div className="space-y-4">
+          <h3 className="text-base font-semibold text-foreground">Prop Firm & MCP Integrations</h3>
+          <FundedNextCard className="w-full" />
+        </div>
       </div>
     </AppLayout>
   );
