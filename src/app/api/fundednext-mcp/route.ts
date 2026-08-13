@@ -9,136 +9,201 @@ export async function POST(req: Request) {
     const cleanToken = (token || '').trim();
     if (!cleanToken) {
       return NextResponse.json(
-        { success: false, error: 'FundedNext one-time MCP token is required.' },
+        { success: false, error: 'FundedNext token is required.' },
         { status: 400 }
       );
     }
 
     const endpoint = serverUrl || 'https://mcp.fundednext.com';
 
-    // Attempt live MCP JSON-RPC call to FundedNext endpoint
-    let liveDataSuccess = false;
-    let liveAccount: FundedNextAccount | null = null;
-    let liveTrades: Partial<Trade>[] = [];
+    // Step 1: Call `get_accounts` on FundedNext MCP Server
+    const accountsRes = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${cleanToken}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'tools/call',
+        params: {
+          name: 'get_accounts',
+          arguments: {}
+        }
+      }),
+    });
 
+    if (!accountsRes.ok) {
+      return NextResponse.json(
+        { success: false, error: `FundedNext MCP Server error HTTP ${accountsRes.status}` },
+        { status: accountsRes.status }
+      );
+    }
+
+    const accountsJson = await accountsRes.json();
+    let accountDataRaw: any = null;
+
+    if (accountsJson?.result?.structuredContent?.data && Array.isArray(accountsJson.result.structuredContent.data)) {
+      accountDataRaw = accountsJson.result.structuredContent.data[0];
+    } else if (accountsJson?.result?.content?.[0]?.text) {
+      try {
+        const parsedText = JSON.parse(accountsJson.result.content[0].text);
+        if (parsedText?.data && Array.isArray(parsedText.data)) {
+          accountDataRaw = parsedText.data[0];
+        }
+      } catch (e) {}
+    }
+
+    if (!accountDataRaw) {
+      return NextResponse.json(
+        { success: false, error: 'No active FundedNext account found for this token.' },
+        { status: 404 }
+      );
+    }
+
+    const accountId = accountDataRaw.id;
+    const startingBalance = Number(accountDataRaw.starting_balance || accountDataRaw.plan?.startingBalance || 6000);
+    const balance = Number(accountDataRaw.balance || startingBalance);
+    const equity = Number(accountDataRaw.equity || balance);
+    const planTitle = accountDataRaw.plan?.title || accountDataRaw.type || `FundedNext ${startingBalance / 1000}K Challenge`;
+    const login = accountDataRaw.login || 'FN-' + accountId;
+    const isBreached = Boolean(accountDataRaw.breached);
+
+    // Calculate realistic rules thresholds based on starting balance
+    const maxDailyLossLimit = startingBalance * 0.05; // 5% daily loss limit
+    const maxOverallLossLimit = startingBalance * 0.10; // 10% overall loss limit
+    const profitTarget = startingBalance * 0.10; // 10% target
+    const currentDailyLoss = Math.max(0, balance - equity);
+    const currentOverallLoss = Math.max(0, startingBalance - equity);
+
+    const account: FundedNextAccount = {
+      accountNumber: String(login),
+      accountType: planTitle,
+      balance: balance,
+      equity: equity,
+      initialBalance: startingBalance,
+      profitTarget: profitTarget,
+      maxDailyLossLimit: maxDailyLossLimit,
+      currentDailyLoss: currentDailyLoss,
+      maxOverallLossLimit: maxOverallLossLimit,
+      currentOverallLoss: currentOverallLoss,
+      payoutEligible: !isBreached && balance > startingBalance,
+      status: isBreached ? 'Breached' : (balance >= startingBalance + profitTarget ? 'Passed' : 'Active'),
+      lastSyncedAt: new Date().toISOString(),
+    };
+
+    // Step 2: Call `get_trading_history` for this specific accountId
+    let trades: Partial<Trade>[] = [];
     try {
-      // MCP Protocol 2.0 Handshake Request
-      const mcpResponse = await fetch(endpoint, {
+      const historyRes = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${cleanToken}`,
-          'X-MCP-Version': '1.0',
         },
         body: JSON.stringify({
           jsonrpc: '2.0',
-          id: 1,
+          id: 2,
           method: 'tools/call',
           params: {
-            name: 'get_account_overview',
-            arguments: { token: cleanToken }
+            name: 'get_trading_history',
+            arguments: { account_id: accountId }
           }
         }),
       });
 
-      if (mcpResponse.ok) {
-        const json = await mcpResponse.json();
-        if (json && json.result) {
-          liveDataSuccess = true;
-          const data = json.result;
-          liveAccount = {
-            accountNumber: data.account_number || 'FN-' + Math.floor(100000 + Math.random() * 900000),
-            accountType: data.account_type || 'FundedNext Stellar Challenge 100K',
-            balance: data.balance ?? 104250.00,
-            equity: data.equity ?? 105120.50,
-            initialBalance: data.initial_balance ?? 100000.00,
-            profitTarget: data.profit_target ?? 10000.00,
-            maxDailyLossLimit: data.max_daily_loss ?? 5000.00,
-            currentDailyLoss: data.current_daily_loss ?? 450.00,
-            maxOverallLossLimit: data.max_overall_loss ?? 10000.00,
-            currentOverallLoss: data.current_overall_loss ?? 0.00,
-            payoutEligible: data.payout_eligible ?? true,
-            status: data.status || 'Active',
-            lastSyncedAt: new Date().toISOString(),
-          };
+      if (historyRes.ok) {
+        const historyJson = await historyRes.json();
+        let rawTradesList: any[] = [];
+
+        if (historyJson?.result?.structuredContent?.data && Array.isArray(historyJson.result.structuredContent.data)) {
+          rawTradesList = historyJson.result.structuredContent.data;
+        } else if (historyJson?.result?.content?.[0]?.text) {
+          try {
+            const parsed = JSON.parse(historyJson.result.content[0].text);
+            if (parsed?.data && Array.isArray(parsed.data)) {
+              rawTradesList = parsed.data;
+            }
+          } catch (e) {}
         }
+
+        // Map FundedNext trade schema to Draga AI Trade schema
+        trades = rawTradesList.map((t: any) => {
+          const profit = Number(t.profit || 0);
+          const rawType = (t.type_str || '').toLowerCase();
+          const direction: 'Long' | 'Short' = rawType.includes('sell') ? 'Short' : 'Long';
+          const symbol = (t.symbol || 'XAUUSD').toUpperCase();
+
+          let market: 'Forex' | 'Commodities' | 'Indices' | 'Crypto' = 'Forex';
+          if (symbol.includes('XAU') || symbol.includes('GOLD') || symbol.includes('XAG')) {
+            market = 'Commodities';
+          } else if (symbol.includes('US30') || symbol.includes('NAS') || symbol.includes('GER') || symbol.includes('SPX')) {
+            market = 'Indices';
+          } else if (symbol.includes('BTC') || symbol.includes('ETH')) {
+            market = 'Crypto';
+          }
+
+          const openPrice = Number(t.open_price || 0);
+          const closePrice = Number(t.close_price || 0);
+          const stopLoss = Number(t.sl || 0);
+          const takeProfit = Number(t.tp || 0);
+          const lots = Number(t.lots || t.volume / 100 || 0.1);
+
+          let result: 'Win' | 'Loss' | 'Breakeven' = 'Breakeven';
+          if (profit > 0.01) result = 'Win';
+          else if (profit < -0.01) result = 'Loss';
+
+          const tradeDate = t.close_time_str || t.open_time_str || t.created_at || new Date().toISOString();
+
+          return {
+            pair: symbol,
+            market: market,
+            direction: direction,
+            result: result,
+            entryPrice: openPrice,
+            exitPrice: closePrice,
+            stopLoss: stopLoss,
+            takeProfit: takeProfit,
+            positionSize: lots,
+            fees: Math.abs(Number(t.commission || 0)),
+            pnl: profit,
+            session: 'New York',
+            strategy: 'FundedNext Prop Trade',
+            setup: 'MT5 Live Execution',
+            timeframe: '15m',
+            date: new Date(tradeDate.replace(/\./g, '-')).toISOString(),
+            duration: '30m',
+            rating: profit > 0 ? 5 : 3,
+            emotionBefore: 'Calm',
+            emotionDuring: 'Disciplined',
+            emotionAfter: profit > 0 ? 'Confident' : 'Calm',
+            confidenceLevel: 8,
+            isMistake: false,
+            lessonsLearned: 'Live FundedNext MT5 Trade imported via MCP.',
+            screenshotUrl: '',
+            tradingViewLink: '',
+            notes: `FundedNext Ticket #${t.ticket || t.id}`,
+            tags: ['FundedNext', 'PropFirm', 'MT5', 'MCP'],
+            isFavorite: false,
+            isArchived: false,
+          };
+        });
       }
     } catch (e) {
-      console.warn('Live FundedNext MCP endpoint handshake warning:', e);
-    }
-
-    // High quality realistic response fallback for valid token testing
-    if (!liveDataSuccess || !liveAccount) {
-      const isPropToken = cleanToken.length > 5;
-      if (!isPropToken) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid FundedNext token provided.' },
-          { status: 401 }
-        );
-      }
-
-      liveAccount = {
-        accountNumber: 'FN-882941',
-        accountType: 'FundedNext Stellar 100K Challenge',
-        balance: 104250.00,
-        equity: 105890.00,
-        initialBalance: 100000.00,
-        profitTarget: 10000.00,
-        maxDailyLossLimit: 5000.00,
-        currentDailyLoss: 320.00,
-        maxOverallLossLimit: 10000.00,
-        currentOverallLoss: 0.00,
-        payoutEligible: true,
-        status: 'Active',
-        lastSyncedAt: new Date().toISOString(),
-      };
-
-      liveTrades = [
-        {
-          pair: 'XAUUSD',
-          market: 'Commodities',
-          direction: 'Long',
-          entryPrice: 2420.50,
-          exitPrice: 2435.00,
-          stopLoss: 2415.00,
-          takeProfit: 2440.00,
-          positionSize: 2.0,
-          pnl: 2900.00,
-          result: 'Win',
-          session: 'New York',
-          strategy: 'FundedNext ICT Order Block',
-          timeframe: '15m',
-          date: new Date().toISOString(),
-        },
-        {
-          pair: 'EURUSD',
-          market: 'Forex',
-          direction: 'Short',
-          entryPrice: 1.0890,
-          exitPrice: 1.0845,
-          stopLoss: 1.0910,
-          takeProfit: 1.0820,
-          positionSize: 3.0,
-          pnl: 1350.00,
-          result: 'Win',
-          session: 'London',
-          strategy: 'FundedNext Liquidity Sweep',
-          timeframe: '5m',
-          date: new Date(Date.now() - 86400000).toISOString(),
-        }
-      ];
+      console.warn('Error fetching FundedNext trade history:', e);
     }
 
     return NextResponse.json({
       success: true,
-      message: action === 'connect' ? 'FundedNext MCP Server connected successfully!' : 'FundedNext data synced via MCP.',
-      account: liveAccount,
-      trades: liveTrades,
+      message: action === 'connect' ? 'FundedNext Live MCP Account connected!' : 'FundedNext live trades synced!',
+      account: account,
+      trades: trades,
     });
   } catch (error: any) {
     console.error('FundedNext MCP API Error:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'FundedNext MCP processing failed.' },
+      { success: false, error: error.message || 'FundedNext MCP server communication failed.' },
       { status: 500 }
     );
   }
