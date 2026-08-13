@@ -35,7 +35,7 @@ export default function DashboardContent() {
           {getGreeting()}, El Houssaine 🔥
         </h2>
         <p className="text-foreground-subtle mt-1">
-          Time for cocke — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+          Time to execute — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
         </p>
       </motion.div>
 
