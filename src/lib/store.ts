@@ -34,7 +34,7 @@ const customStorage: StateStorage = {
   },
 };
 import {
-  Trade, TradeStats, JournalEntry, AppSettings, Goal, MoodEntry, Habit, Comment
+  Trade, TradeStats, JournalEntry, AppSettings, Goal, MoodEntry, Habit, Comment, FundedNextAccount
 } from './types';
 import { generateSampleTrades, generateSampleJournalEntries } from './sample-data';
 import { generateId } from './utils';
