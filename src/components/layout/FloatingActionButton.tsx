@@ -15,7 +15,7 @@ export default function FloatingActionButton() {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="fixed bottom-8 right-8 z-50 flex flex-col-reverse items-end gap-3">
+    <div className="hidden md:flex fixed bottom-8 right-8 z-50 flex-col-reverse items-end gap-3">
       {/* Main FAB */}
       <motion.button
         whileHover={{ scale: 1.05 }}
