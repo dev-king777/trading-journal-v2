@@ -8,7 +8,7 @@ import BottomNav from './BottomNav';
 import FloatingActionButton from './FloatingActionButton';
 import CommandPalette from './CommandPalette';
 import SplashScreen from './SplashScreen';
-import { useSettingsStore, initializeAllStores, subscribeToRealtime, isSupabaseConfigured } from '@/lib/store';
+import { useSettingsStore, useFundedNextStore, initializeAllStores, subscribeToRealtime, isSupabaseConfigured } from '@/lib/store';
 import { Toaster } from 'sonner';
 import { Database, LogOut } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -37,6 +37,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     setMounted(true);
     initializeAllStores();
     const unsubscribe = subscribeToRealtime();
+
+    // Auto-sync FundedNext MCP across PC & mobile devices
+    const fnStore = useFundedNextStore.getState();
+    if (fnStore.token) {
+      if (!fnStore.isConnected) {
+        fnStore.connect(fnStore.token).catch(() => {});
+      } else {
+        fnStore.sync().catch(() => {});
+      }
+    }
 
     const splashShown = sessionStorage.getItem('splash-shown');
     if (splashShown) {
