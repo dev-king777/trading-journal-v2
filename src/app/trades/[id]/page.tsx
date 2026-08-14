@@ -12,7 +12,7 @@ import {
 import { toast } from 'sonner';
 import AppLayout from '@/components/layout/AppLayout';
 import { useTradeStore, useCommentsStore, isSupabaseConfigured, supabase } from '@/lib/store';
-import { getEmotionEmoji, formatCurrency, getRelativeTime } from '@/lib/utils';
+import { getEmotionEmoji, formatCurrency, getRelativeTime, compressAndReadImage } from '@/lib/utils';
 import { Market, Direction, Session, Timeframe, Emotion, MARKETS, DIRECTIONS, SESSIONS, TIMEFRAMES, EMOTIONS } from '@/lib/types';
 
 export default function TradeDetailPage() {
@@ -133,37 +133,42 @@ export default function TradeDetailPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!isSupabaseConfigured) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setEditScreenshotUrl(reader.result as string);
-        toast.success('Screenshot saved locally in draft!');
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
-
     try {
       setIsUploadingScreenshot(true);
-      toast.loading('Uploading screenshot...', { id: 'upload-toast' });
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `screenshots/${fileName}`;
+      toast.loading('Processing screenshot...', { id: 'upload-toast' });
 
-      const { data, error } = await supabase.storage
-        .from('screenshots')
-        .upload(filePath, file);
+      // 1. Instantly compress and display locally
+      const base64 = await compressAndReadImage(file);
+      setEditScreenshotUrl(base64);
 
-      if (error) throw error;
+      // 2. Attempt cloud storage upload in background if Supabase is active
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const fileExt = file.name.split('.').pop() || 'jpg';
+          const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+          const filePath = `screenshots/${fileName}`;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('screenshots')
-        .getPublicUrl(filePath);
+          const { error } = await supabase.storage
+            .from('screenshots')
+            .upload(filePath, file, { upsert: true });
 
-      setEditScreenshotUrl(publicUrl);
-      toast.success('Screenshot uploaded successfully!', { id: 'upload-toast' });
+          if (!error) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('screenshots')
+              .getPublicUrl(filePath);
+            if (publicUrl) {
+              setEditScreenshotUrl(publicUrl);
+            }
+          }
+        } catch (cloudErr) {
+          console.warn('Cloud storage sync skipped, image preserved as compressed local draft:', cloudErr);
+        }
+      }
+
+      toast.success('Screenshot updated successfully!', { id: 'upload-toast' });
     } catch (err: any) {
-      toast.error(`Upload failed: ${err.message}`, { id: 'upload-toast' });
+      console.error('Screenshot processing error:', err);
+      toast.error('Failed to process image file', { id: 'upload-toast' });
     } finally {
       setIsUploadingScreenshot(false);
     }

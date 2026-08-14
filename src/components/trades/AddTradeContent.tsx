@@ -18,7 +18,7 @@ import {
   TIMEFRAMES, EMOTIONS, type Market, type Direction, type Session,
   type Timeframe, type Emotion,
 } from '@/lib/types';
-import { getEmotionEmoji } from '@/lib/utils';
+import { getEmotionEmoji, compressAndReadImage } from '@/lib/utils';
 
 const sections = [
   { id: 'info', label: 'Trade Info', icon: TrendingUp },
@@ -136,36 +136,42 @@ export default function AddTradeContent() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!isSupabaseConfigured) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setValue('screenshotUrl', reader.result as string);
-        toast.success('Screenshot saved locally in draft!');
-      };
-      reader.readAsDataURL(file);
-      return;
-    }
-
     try {
-      toast.loading('Uploading screenshot to cloud storage...', { id: 'upload-toast' });
-      const fileExt = file.name.split('.').pop() || 'png';
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-      const filePath = `screenshots/${fileName}`;
+      toast.loading('Processing screenshot...', { id: 'upload-toast' });
 
-      const { data, error } = await supabase.storage
-        .from('trade-screenshots')
-        .upload(filePath, file);
+      // 1. Instantly compress and store locally
+      const base64 = await compressAndReadImage(file);
+      setValue('screenshotUrl', base64);
 
-      if (error) throw error;
+      // 2. Cloud storage sync in background if Supabase is active
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const fileExt = file.name.split('.').pop() || 'jpg';
+          const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+          const filePath = `screenshots/${fileName}`;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('trade-screenshots')
-        .getPublicUrl(filePath);
+          const { error } = await supabase.storage
+            .from('trade-screenshots')
+            .upload(filePath, file, { upsert: true });
 
-      setValue('screenshotUrl', publicUrl);
-      toast.success('Screenshot uploaded to cloud storage!', { id: 'upload-toast' });
+          if (!error) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('trade-screenshots')
+              .getPublicUrl(filePath);
+
+            if (publicUrl) {
+              setValue('screenshotUrl', publicUrl);
+            }
+          }
+        } catch (cloudErr) {
+          console.warn('Cloud storage sync skipped, image preserved as compressed local draft:', cloudErr);
+        }
+      }
+
+      toast.success('Screenshot ready!', { id: 'upload-toast' });
     } catch (err: any) {
-      toast.error(`Upload failed: ${err.message}`, { id: 'upload-toast' });
+      console.error('Screenshot processing error:', err);
+      toast.error('Failed to process image file', { id: 'upload-toast' });
     }
   };
 
