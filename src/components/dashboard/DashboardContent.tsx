@@ -11,7 +11,6 @@ import { useTradeStore } from '@/lib/store';
 import { getGreeting } from '@/lib/utils';
 import StatCard from '@/components/dashboard/StatCard';
 import RecentTrades from '@/components/dashboard/RecentTrades';
-import LotSizeCalculator from '@/components/LotSizeCalculator';
 
 const PnlChart = dynamic(() => import('@/components/dashboard/PnlChart'), { ssr: false });
 const CalendarHeatmap = dynamic(() => import('@/components/dashboard/CalendarHeatmap'), { ssr: false });
@@ -287,14 +286,6 @@ export default function DashboardContent() {
         </motion.div>
       </div>
 
-      {/* XAUUSD Position Size Calculator — Standalone Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.55, duration: 0.5 }}
-      >
-        <LotSizeCalculator className="w-full" />
-      </motion.div>
     </div>
   );
 }

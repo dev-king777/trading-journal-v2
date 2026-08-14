@@ -20,6 +20,7 @@ import {
   Command,
   Sparkles,
   ShieldCheck,
+  Coins,
 } from 'lucide-react';
 import { useSettingsStore } from '@/lib/store';
 
@@ -32,6 +33,7 @@ const navItems = [
   { label: 'Psychology', href: '/psychology', icon: Brain },
   { label: 'Calendar', href: '/calendar', icon: CalendarDays },
   { label: 'Goals', href: '/goals', icon: Target },
+  { label: 'Calculator', href: '/calculator', icon: Coins },
 ];
 
 const bottomItems = [

@@ -18,6 +18,7 @@ import {
   FileText,
   TrendingUp,
   Star,
+  Coins,
 } from 'lucide-react';
 import { useTradeStore, useJournalStore } from '@/lib/store';
 
@@ -99,6 +100,7 @@ export default function CommandPalette() {
                     { label: 'Psychology', icon: Brain, href: '/psychology' },
                     { label: 'Calendar', icon: CalendarDays, href: '/calendar' },
                     { label: 'Goals', icon: Target, href: '/goals' },
+                    { label: 'Calculator', icon: Coins, href: '/calculator' },
                     { label: 'Settings', icon: Settings, href: '/settings' },
                   ].map((page) => (
                     <Command.Item
