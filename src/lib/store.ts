@@ -1297,25 +1297,56 @@ export const initializeAllStores = async () => {
       }
     }
 
-    useTradeStore.setState({ trades: remoteTrades, initialized: true });
-    useJournalStore.setState({ entries: remoteJournal, initialized: true });
+    // Safe Merge: Merge remote trades with any local/in-memory trades so newly added trades are NEVER wiped out
+    const currentLocalTrades = useTradeStore.getState().trades || [];
+    const remoteTradeIds = new Set(remoteTrades.map((t: Trade) => t.id));
+    const nonRemoteTrades = currentLocalTrades.filter((t: Trade) => !remoteTradeIds.has(t.id));
+    const finalTrades = [...nonRemoteTrades, ...remoteTrades];
 
-    if (goalsRes.data) {
+    // Safe Merge: Merge remote journal entries with local journal entries
+    const currentLocalEntries = useJournalStore.getState().entries || [];
+    const remoteJournalIds = new Set(remoteJournal.map((j: JournalEntry) => j.id));
+    const nonRemoteEntries = currentLocalEntries.filter((j: JournalEntry) => !remoteJournalIds.has(j.id));
+    const finalJournal = [...nonRemoteEntries, ...remoteJournal];
+
+    if (finalTrades.length > 0) {
+      useTradeStore.setState({ trades: finalTrades, initialized: true });
+    } else if (remoteTrades.length > 0) {
+      useTradeStore.setState({ trades: remoteTrades, initialized: true });
+    }
+
+    if (finalJournal.length > 0) {
+      useJournalStore.setState({ entries: finalJournal, initialized: true });
+    } else if (remoteJournal.length > 0) {
+      useJournalStore.setState({ entries: remoteJournal, initialized: true });
+    }
+
+    if (goalsRes.data && goalsRes.data.length > 0) {
       useGoalsStore.setState({ goals: goalsRes.data.map(mapGoalFromDb), initialized: true });
     }
-    if (moodRes.data) {
+    if (moodRes.data && moodRes.data.length > 0) {
       useMoodStore.setState({ moodEntries: moodRes.data.map(mapMoodFromDb), initialized: true });
     }
-    if (habitsRes.data) {
+    if (habitsRes.data && habitsRes.data.length > 0) {
       useHabitsStore.setState({ habits: habitsRes.data.map(mapHabitFromDb), initialized: true });
     }
   } catch (err) {
     console.error('Failed to load from Supabase:', err);
-    useTradeStore.getState().initializeWithSampleData();
-    useJournalStore.getState().initializeWithSampleData();
-    useGoalsStore.getState().initializeWithSampleData();
-    useHabitsStore.getState().initializeWithSampleData();
-    useMoodStore.getState().initializeWithSampleData();
+    if (!useTradeStore.getState().initialized) {
+      useTradeStore.getState().initializeWithSampleData();
+    }
+    if (!useJournalStore.getState().initialized) {
+      useJournalStore.getState().initializeWithSampleData();
+    }
+    if (!useGoalsStore.getState().initialized) {
+      useGoalsStore.getState().initializeWithSampleData();
+    }
+    if (!useHabitsStore.getState().initialized) {
+      useHabitsStore.getState().initializeWithSampleData();
+    }
+    if (!useMoodStore.getState().initialized) {
+      useMoodStore.getState().initializeWithSampleData();
+    }
   }
 };
 
@@ -1459,41 +1490,55 @@ export const useFundedNextStore = create<FundedNextStore>()(
 
             // Automatically import synced trades if returned
             if (data.trades && Array.isArray(data.trades) && data.trades.length > 0) {
+              const currentTrades = useTradeStore.getState().trades;
               const addTrade = useTradeStore.getState().addTrade;
+              let importedCount = 0;
+
               for (const t of data.trades) {
-                await addTrade({
-                  pair: t.pair || 'XAUUSD',
-                  market: t.market || 'Commodities',
-                  direction: t.direction || 'Long',
-                  entryPrice: t.entryPrice || 0,
-                  exitPrice: t.exitPrice || 0,
-                  stopLoss: t.stopLoss || 0,
-                  takeProfit: t.takeProfit || 0,
-                  positionSize: t.positionSize || 1,
-                  riskPercent: 1,
-                  rewardPercent: 2,
-                  fees: 0,
-                  session: t.session || 'New York',
-                  strategy: t.strategy || 'FundedNext Trade',
-                  setup: 'FundedNext MCP Sync',
-                  timeframe: t.timeframe || '15m',
-                  date: t.date || new Date().toISOString(),
-                  duration: '45m',
-                  rating: 5,
-                  emotionBefore: 'Calm',
-                  emotionDuring: 'Calm',
-                  emotionAfter: 'Calm',
-                  confidenceLevel: 8,
-                  isMistake: false,
-                  lessonsLearned: 'Synced automatically via FundedNext MCP Server.',
-                  screenshotUrl: '',
-                  tradingViewLink: '',
-                  notes: 'FundedNext Prop Trade Sync',
-                  tags: ['FundedNext', 'PropFirm', 'MCP'],
-                  isFavorite: false,
-                  isArchived: false,
-                  pnl: t.pnl,
-                });
+                const alreadyExists = currentTrades.some((existing) =>
+                  (t.notes && existing.notes && existing.notes === t.notes) ||
+                  (existing.pair === t.pair && Math.abs(existing.entryPrice - (t.entryPrice || 0)) < 0.001 && existing.date === t.date)
+                );
+
+                if (!alreadyExists) {
+                  await addTrade({
+                    pair: t.pair || 'XAUUSD',
+                    market: t.market || 'Commodities',
+                    direction: t.direction || 'Long',
+                    entryPrice: t.entryPrice || 0,
+                    exitPrice: t.exitPrice || 0,
+                    stopLoss: t.stopLoss || 0,
+                    takeProfit: t.takeProfit || 0,
+                    positionSize: t.positionSize || 1,
+                    riskPercent: 1,
+                    rewardPercent: 2,
+                    fees: t.fees || 0,
+                    session: t.session || 'New York',
+                    strategy: t.strategy || 'FundedNext Trade',
+                    setup: 'FundedNext MCP Sync',
+                    timeframe: t.timeframe || '15m',
+                    date: t.date || new Date().toISOString(),
+                    duration: '45m',
+                    rating: 5,
+                    emotionBefore: 'Calm',
+                    emotionDuring: 'Calm',
+                    emotionAfter: 'Calm',
+                    confidenceLevel: 8,
+                    isMistake: false,
+                    lessonsLearned: 'Synced automatically via FundedNext MCP Server.',
+                    screenshotUrl: '',
+                    tradingViewLink: '',
+                    notes: t.notes || 'FundedNext Prop Trade Sync',
+                    tags: ['FundedNext', 'PropFirm', 'MCP'],
+                    isFavorite: false,
+                    isArchived: false,
+                    pnl: t.pnl,
+                  });
+                  importedCount++;
+                }
+              }
+              if (importedCount > 0) {
+                toast.success(`Imported ${importedCount} live trades from FundedNext!`);
               }
             }
 
@@ -1530,6 +1575,61 @@ export const useFundedNextStore = create<FundedNextStore>()(
               account: data.account,
               isSyncing: false,
             });
+
+            // Automatically import newly closed trades during sync
+            if (data.trades && Array.isArray(data.trades) && data.trades.length > 0) {
+              const currentTrades = useTradeStore.getState().trades;
+              const addTrade = useTradeStore.getState().addTrade;
+              let importedCount = 0;
+
+              for (const t of data.trades) {
+                const alreadyExists = currentTrades.some((existing) =>
+                  (t.notes && existing.notes && existing.notes === t.notes) ||
+                  (existing.pair === t.pair && Math.abs(existing.entryPrice - (t.entryPrice || 0)) < 0.001 && existing.date === t.date)
+                );
+
+                if (!alreadyExists) {
+                  await addTrade({
+                    pair: t.pair || 'XAUUSD',
+                    market: t.market || 'Commodities',
+                    direction: t.direction || 'Long',
+                    entryPrice: t.entryPrice || 0,
+                    exitPrice: t.exitPrice || 0,
+                    stopLoss: t.stopLoss || 0,
+                    takeProfit: t.takeProfit || 0,
+                    positionSize: t.positionSize || 1,
+                    riskPercent: 1,
+                    rewardPercent: 2,
+                    fees: t.fees || 0,
+                    session: t.session || 'New York',
+                    strategy: t.strategy || 'FundedNext Trade',
+                    setup: 'FundedNext MCP Sync',
+                    timeframe: t.timeframe || '15m',
+                    date: t.date || new Date().toISOString(),
+                    duration: '45m',
+                    rating: 5,
+                    emotionBefore: 'Calm',
+                    emotionDuring: 'Calm',
+                    emotionAfter: 'Calm',
+                    confidenceLevel: 8,
+                    isMistake: false,
+                    lessonsLearned: 'Synced automatically via FundedNext MCP Server.',
+                    screenshotUrl: '',
+                    tradingViewLink: '',
+                    notes: t.notes || 'FundedNext Prop Trade Sync',
+                    tags: ['FundedNext', 'PropFirm', 'MCP'],
+                    isFavorite: false,
+                    isArchived: false,
+                    pnl: t.pnl,
+                  });
+                  importedCount++;
+                }
+              }
+              if (importedCount > 0) {
+                toast.success(`Synced ${importedCount} new trades from FundedNext!`);
+              }
+            }
+
             toast.success('FundedNext account metrics synced!');
             return true;
           } else {
