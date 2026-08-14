@@ -1421,7 +1421,7 @@ interface FundedNextStore {
   disconnect: () => void;
 }
 
-const DEFAULT_FUNDEDNEXT_TOKEN = '63274516|s3ralgbOwVVfUGudEYWf5e7EeRfpdMBPU3d1GSBsfd0dab93';
+const DEFAULT_FUNDEDNEXT_TOKEN = '63348162|hbbt6nZ4BbLh1YkvoX1hPwDCMiYIlqZT1gObzsfF6c070b8d';
 
 export const useFundedNextStore = create<FundedNextStore>()(
   persist(
