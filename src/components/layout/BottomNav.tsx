@@ -21,7 +21,7 @@ export default function BottomNav() {
   if (pathname === '/login') return null;
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-4 pt-2 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none">
       <nav className="pointer-events-auto max-w-md mx-auto h-16 bg-card/90 backdrop-blur-xl border border-border-subtle rounded-2xl flex items-center justify-around px-2 shadow-2xl shadow-black/40">
         {navItems.map((item) => {
           const Icon = item.icon;
