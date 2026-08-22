@@ -39,18 +39,20 @@ export default function PayoutTracker() {
     } catch {}
   }, []);
 
-  // Auto-connect if token exists but not connected
+  // Try MCP connection silently in background (never blocks UI)
+  const [mcpAttempted, setMcpAttempted] = useState(false);
   useEffect(() => {
-    if (token && !isConnected && !isSyncing) {
+    if (token && !isConnected && !isSyncing && !mcpAttempted) {
+      setMcpAttempted(true);
       fnStore.connect(token).catch(() => {});
     }
-  }, [token, isConnected, isSyncing]);
+  }, [token, isConnected, isSyncing, mcpAttempted]);
 
+  // Use MCP balance if available, otherwise calculate from trades
   const accountBalance = account?.balance || 0;
   const initialBalance = account?.initialBalance || 0;
-  const totalProfit = accountBalance - initialBalance;
 
-  // Calculate trade stats for consistency
+  // Calculate trade stats for consistency - works 100% from trades data alone
   const tradeStats = useMemo(() => {
     if (!goal) return null;
 
@@ -70,12 +72,18 @@ export default function PayoutTracker() {
     const worstDayPnl = dailyPnlValues.length > 0 ? Math.min(...dailyPnlValues) : 0;
     const tradingDaysUsed = Object.keys(dailyPnl).length;
 
+    // Use MCP profit if available, otherwise use trades PnL
+    const totalProfit = (accountBalance > 0 && initialBalance > 0)
+      ? accountBalance - initialBalance
+      : totalPnlFromTrades;
+
     // 40% consistency check
     const consistencyRatio = totalPnlFromTrades > 0 ? (bestDayPnl / totalPnlFromTrades) * 100 : 0;
     const isConsistent = consistencyRatio <= 40;
 
-    // 2% check
-    const profitPercentage = initialBalance > 0 ? (totalProfit / initialBalance) * 100 : 0;
+    // 2% check - use MCP balance if available, otherwise estimate from goal objective context
+    const balanceForCheck = initialBalance > 0 ? initialBalance : (goal.objective / 0.10); // estimate ~10% target
+    const profitPercentage = balanceForCheck > 0 ? (totalProfit / balanceForCheck) * 100 : 0;
     const isAbove2Percent = profitPercentage >= 2;
 
     // Days remaining
@@ -96,6 +104,7 @@ export default function PayoutTracker() {
     const progress = goal.objective > 0 ? Math.min(100, (totalProfit / goal.objective) * 100) : 0;
 
     return {
+      totalProfit,
       totalPnlFromTrades,
       bestDayPnl,
       worstDayPnl,
@@ -111,7 +120,7 @@ export default function PayoutTracker() {
       remainingProfit,
       progress,
     };
-  }, [trades, goal, totalProfit, initialBalance]);
+  }, [trades, goal, accountBalance, initialBalance]);
 
   const handleSetGoal = () => {
     const obj = parseFloat(objectiveInput);
@@ -283,7 +292,7 @@ export default function PayoutTracker() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-foreground-subtle">
-                    Progress: <span className="font-bold text-foreground">${totalProfit.toFixed(2)}</span> / <span className="text-foreground-muted">${goal?.objective.toFixed(2)}</span>
+                    Progress: <span className="font-bold text-foreground">${(tradeStats?.totalProfit || 0).toFixed(2)}</span> / <span className="text-foreground-muted">${goal?.objective.toFixed(2)}</span>
                   </span>
                   <span className={`font-bold ${(tradeStats?.progress || 0) >= 100 ? 'text-emerald-400' : 'text-accent-blue'}`}>
                     {(tradeStats?.progress || 0).toFixed(1)}%
@@ -447,7 +456,7 @@ export default function PayoutTracker() {
                           <div className="flex items-center gap-2 text-xs">
                             <span>{tradeStats.progress >= 100 ? '✅' : '⬜'}</span>
                             <span className={tradeStats.progress >= 100 ? 'text-emerald-300' : 'text-foreground-subtle'}>
-                              Target reached (${totalProfit.toFixed(2)} / ${goal?.objective})
+                              Target reached (${(tradeStats?.totalProfit || 0).toFixed(2)} / ${goal?.objective})
                             </span>
                           </div>
                         </div>
