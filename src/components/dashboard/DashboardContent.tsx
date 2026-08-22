@@ -17,8 +17,6 @@ const CalendarHeatmap = dynamic(() => import('@/components/dashboard/CalendarHea
 const WinRateChart = dynamic(() => import('@/components/dashboard/WinRateChart'), { ssr: false });
 import { motion } from 'framer-motion';
 
-import FundedNextCard from '@/components/fundednext/FundedNextCard';
-
 export default function DashboardContent() {
   const trades = useTradeStore((s) => s.trades);
   const getStats = useTradeStore((s) => s.getStats);
@@ -39,9 +37,6 @@ export default function DashboardContent() {
           Time to execute — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
         </p>
       </motion.div>
-
-      {/* FundedNext MCP Live Account Widget */}
-      <FundedNextCard className="w-full" />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
