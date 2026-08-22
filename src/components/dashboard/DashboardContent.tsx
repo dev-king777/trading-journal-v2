@@ -15,6 +15,7 @@ import RecentTrades from '@/components/dashboard/RecentTrades';
 const PnlChart = dynamic(() => import('@/components/dashboard/PnlChart'), { ssr: false });
 const CalendarHeatmap = dynamic(() => import('@/components/dashboard/CalendarHeatmap'), { ssr: false });
 const WinRateChart = dynamic(() => import('@/components/dashboard/WinRateChart'), { ssr: false });
+const PayoutTracker = dynamic(() => import('@/components/dashboard/PayoutTracker'), { ssr: false });
 import { motion } from 'framer-motion';
 
 export default function DashboardContent() {
@@ -37,6 +38,9 @@ export default function DashboardContent() {
           Time to execute — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
         </p>
       </motion.div>
+
+      {/* Payout Goal Tracker */}
+      <PayoutTracker />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
