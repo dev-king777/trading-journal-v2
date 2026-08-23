@@ -24,17 +24,17 @@ export default function DashboardContent() {
   const stats = getStats();
 
   return (
-    <div className="max-w-[1440px] mx-auto space-y-8">
+    <div className="max-w-[1440px] mx-auto space-y-5 sm:space-y-8">
       {/* Greeting */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <h2 className="text-3xl font-bold text-foreground tracking-tight">
+        <h2 className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">
           {getGreeting()}, El Houssaine 🔥
         </h2>
-        <p className="text-foreground-subtle mt-1">
+        <p className="text-sm sm:text-base text-foreground-subtle mt-1">
           Time to execute — {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
         </p>
       </motion.div>
@@ -43,7 +43,7 @@ export default function DashboardContent() {
       <PayoutTracker />
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           title="Today's P&L"
           value={stats.todayPnl}
@@ -233,7 +233,7 @@ export default function DashboardContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.45, duration: 0.5 }}
-          className="rounded-2xl bg-card border border-border-subtle p-6"
+          className="rounded-2xl bg-card border border-border-subtle p-4 sm:p-6"
         >
           <h3 className="text-base font-semibold text-foreground mb-1">Trading Quote</h3>
           <p className="text-sm text-foreground-subtle mb-5">Daily inspiration</p>

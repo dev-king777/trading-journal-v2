@@ -113,9 +113,10 @@ export default function PsychologyPage() {
   return (
     <AppLayout>
       <div className="max-w-[1200px] mx-auto space-y-6">
+        {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <h2 className="text-3xl font-bold text-foreground tracking-tight">Psychology</h2>
-          <p className="text-foreground-subtle mt-1">Track habits, perform daily reflections, and observe behavioral mistakes</p>
+          <h2 className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">Psychology</h2>
+          <p className="text-sm text-foreground-subtle mt-0.5 sm:mt-1">Track your mindset, mental state & execution habits</p>
         </motion.div>
 
         {/* Score Rings */}
@@ -123,7 +124,7 @@ export default function PsychologyPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="rounded-2xl bg-card border border-border-subtle p-8"
+          className="rounded-2xl bg-card border border-border-subtle p-4 sm:p-8"
         >
           <h3 className="text-base font-semibold text-foreground mb-6">Mindset Health Scores</h3>
           <div className="flex items-center justify-around flex-wrap gap-6">
@@ -141,7 +142,7 @@ export default function PsychologyPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="rounded-2xl bg-card border border-border-subtle p-6"
+            className="rounded-2xl bg-card border border-border-subtle p-4 sm:p-6"
           >
             <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
               <Brain className="w-4 h-4 text-accent-purple" />
@@ -210,7 +211,7 @@ export default function PsychologyPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="rounded-2xl bg-card border border-border-subtle p-6"
+            className="rounded-2xl bg-card border border-border-subtle p-4 sm:p-6"
           >
             <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
               <Target className="w-4 h-4 text-accent-emerald" />

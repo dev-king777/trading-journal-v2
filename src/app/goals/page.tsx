@@ -133,12 +133,12 @@ export default function GoalsPage() {
     <AppLayout>
       <div className="max-w-[1200px] mx-auto space-y-6">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-between items-center">
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-3xl font-bold text-foreground tracking-tight">Goals</h2>
-            <p className="text-foreground-subtle mt-1">Track target progressions and achievements earned</p>
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">Goals</h2>
+            <p className="text-sm text-foreground-subtle mt-0.5 sm:mt-1">Track target progressions and achievements earned</p>
           </div>
-          <button onClick={() => setShowAddGoalForm(!showAddGoalForm)} className="btn-primary">
+          <button onClick={() => setShowAddGoalForm(!showAddGoalForm)} className="btn-primary self-start sm:self-auto">
             <Plus className="w-4 h-4" /> Add Goal
           </button>
         </motion.div>
@@ -151,7 +151,7 @@ export default function GoalsPage() {
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               onSubmit={handleAddGoal}
-              className="rounded-2xl bg-card border border-accent-blue/30 p-6 space-y-4"
+              className="rounded-2xl bg-card border border-accent-blue/30 p-4 sm:p-6 space-y-4"
             >
               <h3 className="text-base font-bold text-foreground">Create a New Trading Goal</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

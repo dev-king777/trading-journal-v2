@@ -86,16 +86,12 @@ export default function PayoutTracker() {
     const profitPercentage = balanceForCheck > 0 ? (totalProfit / balanceForCheck) * 100 : 0;
     const isAbove2Percent = profitPercentage >= 2;
 
-    // Days remaining
-    const now = new Date();
-    const goalEndDate = new Date(goalStartDate);
-    goalEndDate.setDate(goalEndDate.getDate() + goal.days);
-    const daysRemaining = Math.max(0, Math.ceil((goalEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
-    const daysElapsed = goal.days - daysRemaining;
+    // Trading Days calculations (Count only days where a trade actually took place)
+    const tradingDaysRemaining = Math.max(0, goal.days - tradingDaysUsed);
 
-    // Daily target
+    // Daily target per remaining trading day
     const remainingProfit = Math.max(0, goal.objective - totalProfit);
-    const dailyTarget = daysRemaining > 0 ? remainingProfit / daysRemaining : 0;
+    const dailyTarget = tradingDaysRemaining > 0 ? remainingProfit / tradingDaysRemaining : remainingProfit;
 
     // Max single-day profit (40% rule)
     const maxSingleDayProfit = goal.objective * 0.4;
@@ -113,8 +109,7 @@ export default function PayoutTracker() {
       isConsistent,
       profitPercentage,
       isAbove2Percent,
-      daysRemaining,
-      daysElapsed,
+      tradingDaysRemaining,
       dailyTarget,
       maxSingleDayProfit,
       remainingProfit,
@@ -185,12 +180,12 @@ export default function PayoutTracker() {
       className="rounded-2xl bg-card border border-border-subtle overflow-hidden"
     >
       {/* Header with gradient accent */}
-      <div className="relative p-5 pb-4">
+      <div className="relative p-4 sm:p-5 pb-3 sm:pb-4">
         <div className="absolute inset-0 bg-gradient-to-r from-accent-blue/5 via-accent-purple/5 to-accent-emerald/5" />
-        <div className="relative flex items-center justify-between">
+        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center shadow-lg shadow-accent-blue/20">
-              <Target className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center shadow-lg shadow-accent-blue/20">
+              <Target className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
             <div>
               <h3 className="text-base font-bold text-foreground">Payout Goal Tracker</h3>
@@ -220,7 +215,7 @@ export default function PayoutTracker() {
       </div>
 
       {/* Setup Form or Tracker */}
-      <div className="px-5 pb-5">
+      <div className="px-4 sm:px-5 pb-4 sm:pb-5">
         <AnimatePresence mode="wait">
           {!isSetup ? (
             <motion.div
@@ -262,13 +257,13 @@ export default function PayoutTracker() {
                 </div>
                 <div>
                   <label className="text-xs text-foreground-subtle mb-1.5 block font-medium">
-                    📅 Days to Reach
+                    📅 Trading Days Target
                   </label>
                   <input
                     type="number"
                     value={daysInput}
                     onChange={(e) => setDaysInput(e.target.value)}
-                    placeholder="e.g. 10"
+                    placeholder="e.g. 5 (traded days)"
                     className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-border-subtle text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-accent-blue/40 focus:border-accent-blue/40 placeholder:text-foreground-subtle/50 transition-all"
                   />
                 </div>
@@ -322,20 +317,24 @@ export default function PayoutTracker() {
                 <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
                   <div className="flex items-center gap-1.5">
                     <DollarSign className="w-3.5 h-3.5 text-accent-blue" />
-                    <span className="text-[10px] text-foreground-subtle font-medium uppercase tracking-wider">Daily Target</span>
+                    <span className="text-[10px] text-foreground-subtle font-medium uppercase tracking-wider">Target / Day</span>
                   </div>
                   <p className="text-lg font-bold text-foreground">${(tradeStats?.dailyTarget || 0).toFixed(0)}</p>
-                  <p className="text-[10px] text-foreground-subtle">/day needed</p>
+                  <p className="text-[10px] text-foreground-subtle">/traded day needed</p>
                 </div>
 
-                {/* Days Remaining */}
+                {/* Trading Days */}
                 <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-1">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5 text-accent-purple" />
-                    <span className="text-[10px] text-foreground-subtle font-medium uppercase tracking-wider">Days Left</span>
+                    <span className="text-[10px] text-foreground-subtle font-medium uppercase tracking-wider">Trading Days</span>
                   </div>
-                  <p className="text-lg font-bold text-foreground">{tradeStats?.daysRemaining || 0}</p>
-                  <p className="text-[10px] text-foreground-subtle">of {goal?.days} days</p>
+                  <p className="text-lg font-bold text-foreground">
+                    {tradeStats?.tradingDaysUsed || 0} <span className="text-xs font-normal text-foreground-subtle">/ {goal?.days}</span>
+                  </p>
+                  <p className="text-[10px] text-foreground-subtle">
+                    {(tradeStats?.tradingDaysRemaining || 0) > 0 ? `${tradeStats?.tradingDaysRemaining} left` : 'Target days reached'}
+                  </p>
                 </div>
 
                 {/* 40% Rule */}

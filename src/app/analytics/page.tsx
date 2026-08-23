@@ -171,8 +171,8 @@ export default function AnalyticsPage() {
       <div className="max-w-[1440px] mx-auto space-y-6">
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <h2 className="text-3xl font-bold text-foreground tracking-tight">Analytics</h2>
-          <p className="text-foreground-subtle mt-1">Deep dive into your trading performance metrics</p>
+          <h2 className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">Analytics</h2>
+          <p className="text-sm text-foreground-subtle mt-0.5 sm:mt-1">Deep dive into your trading performance metrics</p>
         </motion.div>
 
         {!mounted ? (
@@ -186,7 +186,7 @@ export default function AnalyticsPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3"
+              className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3"
             >
               {[
                 { label: 'Total P&L', value: `$${stats.totalPnl.toFixed(2)}`, color: stats.totalPnl >= 0 ? 'text-profit' : 'text-loss', icon: TrendingUp },
@@ -196,12 +196,12 @@ export default function AnalyticsPage() {
                 { label: 'Best Day', value: `$${bestDay.toFixed(2)}`, color: 'text-profit', icon: ArrowUpRight },
                 { label: 'Worst Day', value: `$${worstDay.toFixed(2)}`, color: 'text-loss', icon: ArrowDownRight },
               ].map((m) => (
-                <div key={m.label} className="p-4 rounded-xl bg-card border border-border-subtle">
+                <div key={m.label} className="p-3 sm:p-4 rounded-xl bg-card border border-border-subtle">
                   <div className="flex items-center gap-1.5 mb-1 text-foreground-subtle">
                     <m.icon className="w-3.5 h-3.5" />
-                    <span className="text-[10px] uppercase font-bold tracking-wider">{m.label}</span>
+                    <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider truncate">{m.label}</span>
                   </div>
-                  <p className={`text-base font-bold ${m.color}`}>{m.value}</p>
+                  <p className={`text-sm sm:text-base font-bold ${m.color}`}>{m.value}</p>
                 </div>
               ))}
             </motion.div>
@@ -213,11 +213,11 @@ export default function AnalyticsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15 }}
-                className="lg:col-span-2 rounded-2xl bg-card border border-border-subtle p-6"
+                className="lg:col-span-2 rounded-2xl bg-card border border-border-subtle p-4 sm:p-6"
               >
                 <h3 className="text-base font-semibold text-foreground mb-1">Equity Curve</h3>
-                <p className="text-xs text-foreground-subtle mb-6">Chronological balance growth (Base $10,000)</p>
-                <div className="h-[300px]">
+                <p className="text-xs text-foreground-subtle mb-4 sm:mb-6">Chronological balance growth (Base $10,000)</p>
+                <div className="h-[240px] sm:h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={equityCurveData}>
                       <defs>

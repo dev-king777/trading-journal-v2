@@ -113,9 +113,11 @@ export default function CalendarPage() {
     <AppLayout>
       <div className="max-w-[1400px] mx-auto space-y-6">
         {/* Header */}
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <h2 className="text-3xl font-bold text-foreground tracking-tight">Calendar</h2>
-          <p className="text-foreground-subtle mt-1">Track daily performance, trade logs, and weekly summaries</p>
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">Calendar</h2>
+            <p className="text-sm text-foreground-subtle mt-0.5 sm:mt-1">Track daily performance, active days & consistency</p>
+          </div>
         </motion.div>
 
         {/* GitHub Style Contribution Calendar Heatmap */}
@@ -187,7 +189,7 @@ export default function CalendarPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="xl:col-span-3 rounded-2xl bg-[#0e0e11] border border-border-subtle p-6"
+            className="xl:col-span-3 rounded-2xl bg-[#0e0e11] border border-border-subtle p-4 sm:p-6"
           >
             {/* Top Navigation Row */}
             <div className="flex items-center justify-between mb-6">
@@ -229,7 +231,8 @@ export default function CalendarPage() {
             </div>
 
             {/* Calendar Grid — 8-Column Layout (7 Days + 1 Weekly Summary) */}
-            <div className="grid grid-cols-8 gap-[1px] bg-border-subtle/40 rounded-xl overflow-hidden border border-border-subtle/50">
+            <div className="overflow-x-auto pb-2 -mx-1 px-1">
+              <div className="grid grid-cols-8 gap-[1px] bg-border-subtle/40 rounded-xl overflow-hidden border border-border-subtle/50 min-w-[600px]">
               
               {/* Header Days */}
               {['SUN', 'MON', 'TUE', 'WED', 'THR', 'FRI', 'SAT'].map((d) => (
@@ -350,6 +353,7 @@ export default function CalendarPage() {
                   </React.Fragment>
                 );
               })}
+              </div>
             </div>
           </motion.div>
 
@@ -358,7 +362,7 @@ export default function CalendarPage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="rounded-2xl bg-card border border-border-subtle p-6 flex flex-col justify-between h-full"
+            className="rounded-2xl bg-card border border-border-subtle p-4 sm:p-6 flex flex-col justify-between h-full"
           >
             {selectedDay ? (
               <div className="space-y-6">

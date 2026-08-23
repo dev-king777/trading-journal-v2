@@ -74,8 +74,8 @@ export default function TradeCard({
       )}
 
       <Link href={`/trades/${trade.id}`} className="block">
-        {/* Large Screenshot Header Image (h-56 instead of h-36 for major prominence) */}
-        <div className="relative w-full h-56 bg-black/20 overflow-hidden border-b border-white/[0.04]">
+        {/* Large Screenshot Header Image */}
+        <div className="relative w-full h-40 sm:h-56 bg-black/20 overflow-hidden border-b border-white/[0.04]">
           <img
             src={chartUrl}
             alt={`${trade.pair} chart`}

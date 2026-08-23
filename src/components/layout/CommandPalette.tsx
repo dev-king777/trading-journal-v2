@@ -68,9 +68,9 @@ export default function CommandPalette() {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: -10 }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-            className="fixed left-1/2 top-[20%] z-[101] -translate-x-1/2 w-full max-w-[560px]"
+            className="fixed left-1/2 top-[12%] sm:top-[20%] z-[101] -translate-x-1/2 w-[calc(100%-1.5rem)] max-w-[560px]"
           >
-            <Command className="glass-strong rounded-2xl overflow-hidden shadow-2xl">
+            <Command className="glass-strong rounded-2xl overflow-hidden shadow-2xl border border-white/10">
               {/* Search Input */}
               <div className="flex items-center gap-3 px-5 border-b border-white/[0.06]">
                 <Search className="w-4 h-4 text-foreground-subtle flex-shrink-0" />

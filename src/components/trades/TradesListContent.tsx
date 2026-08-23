@@ -422,15 +422,15 @@ export default function TradesListContent() {
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div>
-          <h2 className="text-3xl font-bold text-foreground tracking-tight">Trades</h2>
-          <p className="text-foreground-subtle mt-1">
+          <h2 className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">Trades</h2>
+          <p className="text-sm text-foreground-subtle mt-0.5 sm:mt-1">
             {filteredTrades.length} trade{filteredTrades.length !== 1 ? 's' : ''} logged
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           {/* Hidden Import file input */}
           <input
             type="file"
@@ -461,7 +461,7 @@ export default function TradesListContent() {
             title="Log with Draga AI"
           >
             <Sparkles className="w-4 h-4 text-yellow-500 animate-pulse" />
-            <span>Log with Draga</span>
+            <span className="hidden sm:inline">Log with Draga</span>
           </button>
 
           <button
@@ -487,7 +487,7 @@ export default function TradesListContent() {
         transition={{ delay: 0.1 }}
         className="space-y-3"
       >
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Selection mode toggle */}
           <button
             onClick={toggleSelectionMode}
@@ -499,14 +499,14 @@ export default function TradesListContent() {
           </button>
 
           {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-subtle" />
+          <div className="relative flex-1 min-w-[140px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-subtle" />
             <input
               type="text"
-              placeholder="Search trades by pair, strategy, notes, tags..."
+              placeholder="Search trades..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="input-field pl-10"
+              className="input-field pl-9 text-sm"
             />
           </div>
 
@@ -629,13 +629,13 @@ export default function TradesListContent() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-6 py-4 rounded-2xl bg-card border border-accent-blue/30 shadow-2xl backdrop-blur-md"
+            className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 rounded-2xl bg-card border border-accent-blue/30 shadow-2xl backdrop-blur-md max-w-[calc(100vw-2rem)]"
           >
             <span className="text-sm font-semibold text-foreground">
               {selectedIds.length} trade{selectedIds.length !== 1 ? 's' : ''} selected
             </span>
             <div className="w-px h-5 bg-border-subtle" />
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-center">
               <button
                 onClick={handleSelectAll}
                 className="btn-secondary py-1.5 px-3 text-xs"

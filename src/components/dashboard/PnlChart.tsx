@@ -51,7 +51,7 @@ export default function PnlChart({ trades }: PnlChartProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3, duration: 0.5 }}
-      className="rounded-2xl bg-card border border-border-subtle p-6"
+      className="rounded-2xl bg-card border border-border-subtle p-4 sm:p-6"
     >
       <div className="flex items-center justify-between mb-6">
         <div>

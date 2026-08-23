@@ -502,7 +502,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose} className="fixed inset-0 bg-black/85 backdrop-blur-md" />
 
@@ -515,7 +515,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
             style={{ boxShadow: '0 0 60px rgba(234, 179, 8, 0.15)' }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.04] bg-black/30 shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-white/[0.04] bg-black/30 shrink-0">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-yellow-500 animate-pulse" />
                 <h3 className="text-sm font-bold text-foreground tracking-tight uppercase">
@@ -532,13 +532,13 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
             </div>
 
             {/* Scrollable Content */}
-            <div className="p-6 overflow-y-auto flex-1">
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1">
 
               {/* ═══ UPLOAD PHASE ═══ */}
               {scanStep === 'upload' && (
                 <div className="space-y-5">
-                  {/* Two dropzones side by side */}
-                  <div className="grid grid-cols-2 gap-3">
+                  {/* Two dropzones */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <DropZone
                       label="Image 1 — Chart"
                       description="Full TradingView chart screenshot for ICT/SMC analysis"

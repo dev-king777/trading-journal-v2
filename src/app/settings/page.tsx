@@ -85,13 +85,13 @@ export default function SettingsPage() {
     <AppLayout>
       <div className="max-w-[700px] mx-auto space-y-6">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
-          <h2 className="text-3xl font-bold text-foreground tracking-tight">Settings</h2>
-          <p className="text-foreground-subtle mt-1">Configure parameters, themes, and database syncing</p>
+          <h2 className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">Settings</h2>
+          <p className="text-sm text-foreground-subtle mt-0.5 sm:mt-1">Configure parameters, themes, and database syncing</p>
         </motion.div>
 
         {/* Supabase Database Connection */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-          className="rounded-2xl bg-card border border-border-subtle p-6 space-y-5"
+          className="rounded-2xl bg-card border border-border-subtle p-4 sm:p-6 space-y-5"
         >
           <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
             <Database className="w-4 h-4 text-accent-blue" />

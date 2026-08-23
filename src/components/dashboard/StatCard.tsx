@@ -88,7 +88,7 @@ export default function StatCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: delay * 0.08, duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-      className={`relative overflow-hidden rounded-2xl bg-card border border-border-subtle p-5 group hover:border-border transition-all duration-300 stat-card-gradient ${glowClass}`}
+      className={`relative overflow-hidden rounded-xl sm:rounded-2xl bg-card border border-border-subtle p-3 sm:p-5 group hover:border-border transition-all duration-300 stat-card-gradient ${glowClass}`}
     >
       {/* Gradient accent */}
       <div
@@ -96,18 +96,18 @@ export default function StatCard({
       />
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <span className="text-[13px] font-medium text-foreground-subtle">{title}</span>
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${gradient} bg-opacity-10`}
+      <div className="flex items-center justify-between mb-2 sm:mb-4 relative z-10">
+        <span className="text-[11px] sm:text-[13px] font-medium text-foreground-subtle truncate pr-2">{title}</span>
+        <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 ${gradient} bg-opacity-10`}
           style={{ background: 'rgba(255,255,255,0.04)' }}
         >
-          <Icon className="w-4 h-4 text-foreground-muted" />
+          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-foreground-muted" />
         </div>
       </div>
 
       {/* Value */}
       <div className="relative z-10">
-        <p className={`text-2xl font-bold tracking-tight ${
+        <p className={`text-lg sm:text-2xl font-bold tracking-tight ${
           isPnl ? (isPositive ? 'text-profit' : 'text-loss') : 'text-foreground'
         }`}>
           <AnimatedNumber

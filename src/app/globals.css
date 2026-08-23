@@ -434,3 +434,76 @@ body {
   font-size: 12px !important;
   font-family: 'Inter', sans-serif !important;
 }
+
+/* ============================================================
+   MOBILE OPTIMIZATIONS
+   ============================================================ */
+
+/* Prevent iOS Safari zoom on input focus */
+@media (max-width: 767px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Tighter padding for mobile cards */
+  .glass-card:hover {
+    transform: none;
+  }
+
+  /* Better touch feedback */
+  .btn-primary:active,
+  .btn-secondary:active {
+    transform: scale(0.97);
+    transition: transform 0.1s ease;
+  }
+
+  /* Smoother mobile scrolling */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Mobile-safe button sizing */
+  .btn-primary,
+  .btn-secondary {
+    min-height: 40px;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  /* Prevent content from hiding behind bottom nav */
+  main {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
+/* Safe area support for modern phones */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Improve tap highlight for mobile */
+@media (hover: none) {
+  * {
+    -webkit-tap-highlight-color: rgba(59, 130, 246, 0.1);
+  }
+  
+  .glass-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

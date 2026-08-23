@@ -211,7 +211,7 @@ export default function TradeDetailPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between"
+          className="flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
           <Link
             href="/trades"
@@ -221,7 +221,7 @@ export default function TradeDetailPage() {
             Back to Trades
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <button
               onClick={() => toggleFavorite(trade.id)}
               className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors"
@@ -248,7 +248,7 @@ export default function TradeDetailPage() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass-card rounded-2xl p-6 space-y-6"
+            className="glass-card rounded-2xl p-4 sm:p-6 space-y-6"
           >
             <h3 className="text-lg font-bold text-foreground">Edit Trade Details</h3>
 
@@ -379,7 +379,7 @@ export default function TradeDetailPage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`rounded-2xl p-8 border ${
+              className={`rounded-2xl p-5 sm:p-8 border ${
                 trade.pnl > 0
                   ? 'bg-gradient-to-br from-profit/5 to-transparent border-profit/10'
                   : trade.pnl < 0
@@ -387,30 +387,30 @@ export default function TradeDetailPage() {
                   : 'bg-card border-border-subtle'
               }`}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center ${
                     trade.direction === 'Long' ? 'bg-profit/15 text-profit' : 'bg-loss/15 text-loss'
                   }`}>
-                    {trade.direction === 'Long' ? <ArrowUpRight className="w-7 h-7" /> : <ArrowDownRight className="w-7 h-7" />}
+                    {trade.direction === 'Long' ? <ArrowUpRight className="w-5 h-5 sm:w-7 sm:h-7" /> : <ArrowDownRight className="w-5 h-5 sm:w-7 sm:h-7" />}
                   </div>
                   <div>
                     <div className="flex items-center gap-3">
-                      <h1 className="text-3xl font-bold text-foreground">{trade.pair}</h1>
+                      <h1 className="text-xl sm:text-3xl font-bold text-foreground">{trade.pair}</h1>
                       <span className={`badge text-sm ${
                         trade.pnl > 0 ? 'badge-win' : trade.pnl < 0 ? 'badge-loss' : 'badge-breakeven'
                       }`}>
                         {trade.pnl > 0 ? 'WIN' : trade.pnl < 0 ? 'LOSS' : 'BREAKEVEN'}
                       </span>
                     </div>
-                    <p className="text-foreground-subtle mt-1">
-                      {trade.direction} · {trade.market} · {trade.timeframe} · {trade.session} Session
+                    <p className="text-xs sm:text-base text-foreground-subtle mt-0.5 sm:mt-1">
+                      {trade.direction} · {trade.market} · {trade.timeframe} · {trade.session}
                     </p>
                   </div>
                 </div>
 
-                <div className="text-right">
-                  <p className={`text-4xl font-bold ${
+                <div className="text-left sm:text-right">
+                  <p className={`text-2xl sm:text-4xl font-bold ${
                     trade.pnl > 0 ? 'text-profit' : trade.pnl < 0 ? 'text-loss' : 'text-gray-400'
                   }`}>
                     {trade.pnl > 0 ? '+$' : trade.pnl < 0 ? '-$' : '$'}{Math.abs(trade.pnl).toFixed(2)}
@@ -521,16 +521,16 @@ export default function TradeDetailPage() {
                 <Brain className="w-4 h-4 text-accent-purple" />
                 Psychology & Emotion History
               </h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 {[
                   { label: 'Before', emotion: trade.emotionBefore },
                   { label: 'During', emotion: trade.emotionDuring },
                   { label: 'After', emotion: trade.emotionAfter },
                 ].map((e) => (
                   <div key={e.label} className="text-center p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-                    <span className="text-3xl">{getEmotionEmoji(e.emotion)}</span>
-                    <p className="text-sm font-medium text-foreground mt-2">{e.emotion}</p>
-                    <p className="text-[11px] text-foreground-subtle">{e.label} Trade</p>
+                    <span className="text-xl sm:text-3xl">{getEmotionEmoji(e.emotion)}</span>
+                    <p className="text-xs sm:text-sm font-medium text-foreground mt-1 sm:mt-2">{e.emotion}</p>
+                    <p className="text-[10px] sm:text-[11px] text-foreground-subtle">{e.label}</p>
                   </div>
                 ))}
               </div>

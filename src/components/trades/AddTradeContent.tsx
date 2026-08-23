@@ -219,8 +219,8 @@ export default function AddTradeContent() {
           <ArrowLeft className="w-4 h-4 text-foreground-subtle" />
         </Link>
         <div>
-          <h2 className="text-3xl font-bold text-foreground tracking-tight">Log Trade</h2>
-          <p className="text-foreground-subtle mt-0.5">Record your trade details and psychology</p>
+          <h2 className="text-xl sm:text-3xl font-bold text-foreground tracking-tight">Log Trade</h2>
+          <p className="text-sm text-foreground-subtle mt-0.5">Record your trade details</p>
         </div>
       </motion.div>
 
@@ -252,7 +252,7 @@ export default function AddTradeContent() {
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="mb-6 p-4 rounded-xl bg-card border border-border-subtle flex items-center gap-6"
+          className="mb-6 p-3 sm:p-4 rounded-xl bg-card border border-border-subtle flex flex-wrap items-center gap-4 sm:gap-6"
         >
           <div>
             <p className="text-[11px] text-foreground-subtle uppercase tracking-wider">Est. P&L</p>
@@ -282,7 +282,7 @@ export default function AddTradeContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="rounded-2xl bg-card border border-border-subtle p-8 space-y-8"
+          className="rounded-2xl bg-card border border-border-subtle p-4 sm:p-8 space-y-6 sm:space-y-8"
         >
           {/* SECTION: Trade Info */}
             <div className={activeSection === 'info' ? 'space-y-6' : 'hidden'}>
