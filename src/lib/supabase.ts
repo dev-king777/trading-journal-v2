@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
+const DEFAULT_SUPABASE_URL = 'https://spdodiwssapatogcrtvx.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_1xKH99svVYz-06x9324FwQ_D01be';
+
 const getSupabaseCredentials = () => {
   if (typeof window === 'undefined') {
     return {
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-      key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL,
+      key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
     };
   }
 
@@ -22,8 +25,8 @@ const getSupabaseCredentials = () => {
   }
 
   return {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-    key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL,
+    key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY
   };
 };
 
