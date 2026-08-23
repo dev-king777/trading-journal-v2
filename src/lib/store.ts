@@ -339,7 +339,7 @@ export const useTradeStore = create<TradeStore>()(
 
       initializeWithSampleData: () => {
         if (!get().initialized) {
-          set({ trades: generateSampleTrades(30), initialized: true });
+          set({ trades: [], initialized: true });
         }
       },
 
@@ -713,7 +713,7 @@ export const useJournalStore = create<JournalStore>()(
 
       initializeWithSampleData: () => {
         if (!get().initialized) {
-          set({ entries: generateSampleJournalEntries(), initialized: true });
+          set({ entries: [], initialized: true });
         }
       },
 
@@ -1333,19 +1333,19 @@ export const initializeAllStores = async () => {
   } catch (err) {
     console.error('Failed to load from Supabase:', err);
     if (!useTradeStore.getState().initialized) {
-      useTradeStore.getState().initializeWithSampleData();
+      useTradeStore.setState({ trades: [], initialized: true });
     }
     if (!useJournalStore.getState().initialized) {
-      useJournalStore.getState().initializeWithSampleData();
+      useJournalStore.setState({ entries: [], initialized: true });
     }
     if (!useGoalsStore.getState().initialized) {
-      useGoalsStore.getState().initializeWithSampleData();
+      useGoalsStore.setState({ goals: [], initialized: true });
     }
     if (!useHabitsStore.getState().initialized) {
-      useHabitsStore.getState().initializeWithSampleData();
+      useHabitsStore.setState({ habits: [], initialized: true });
     }
     if (!useMoodStore.getState().initialized) {
-      useMoodStore.getState().initializeWithSampleData();
+      useMoodStore.setState({ moodEntries: [], initialized: true });
     }
   }
 };
