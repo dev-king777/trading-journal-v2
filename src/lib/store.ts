@@ -145,9 +145,13 @@ export const mapTradeFromDb = (db: any): Trade => ({
   updatedAt: db.updated_at,
 });
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const mapTradeToDb = (js: Partial<Trade>) => {
   const db: any = {};
-  if (js.id !== undefined) db.id = js.id;
+  if (js.id !== undefined) {
+    db.id = UUID_REGEX.test(js.id) ? js.id : generateId();
+  }
   if (js.pair !== undefined) db.pair = js.pair;
   if (js.market !== undefined) db.market = js.market;
   if (js.direction !== undefined) db.direction = js.direction;
@@ -382,7 +386,7 @@ export const useTradeStore = create<TradeStore>()(
 
         if (isSupabaseConfigured) {
           try {
-            await supabase.from('trades').insert(mapTradeToDb(newTrade));
+            await supabase.from('trades').upsert(mapTradeToDb(newTrade), { onConflict: 'id' });
           } catch (err) {
             console.error('Supabase insert failed:', err);
           }
@@ -433,7 +437,7 @@ export const useTradeStore = create<TradeStore>()(
 
         if (isSupabaseConfigured) {
           try {
-            await supabase.from('trades').update(mapTradeToDb(updatedTrade)).eq('id', id);
+            await supabase.from('trades').upsert(mapTradeToDb(updatedTrade), { onConflict: 'id' });
           } catch (err) {
             console.error('Supabase update failed:', err);
           }
@@ -1297,11 +1301,37 @@ export const initializeAllStores = async () => {
       }
     }
 
-    // Safe Merge: Merge remote trades with any local/in-memory trades so newly added trades are NEVER wiped out
+    // Safe Merge: Merge remote trades with local trades intelligently.
+    // Match by exact ID or by FundedNext Ticket in notes, and ALWAYS keep screenshots/notes if present!
     const currentLocalTrades = useTradeStore.getState().trades || [];
-    const remoteTradeIds = new Set(remoteTrades.map((t: Trade) => t.id));
-    const nonRemoteTrades = currentLocalTrades.filter((t: Trade) => !remoteTradeIds.has(t.id));
-    const finalTrades = [...nonRemoteTrades, ...remoteTrades];
+    const mergedTradesMap = new Map<string, Trade>();
+
+    // 1. Add remote trades first
+    remoteTrades.forEach((rt: Trade) => {
+      const key = rt.notes?.startsWith('FundedNext Ticket') ? rt.notes : rt.id;
+      mergedTradesMap.set(key, rt);
+    });
+
+    // 2. Merge local trades: preserve any custom screenshotUrl / user notes / edits
+    currentLocalTrades.forEach((lt: Trade) => {
+      const key = lt.notes?.startsWith('FundedNext Ticket') ? lt.notes : lt.id;
+      if (mergedTradesMap.has(key)) {
+        const existing = mergedTradesMap.get(key)!;
+        mergedTradesMap.set(key, {
+          ...existing,
+          ...lt,
+          // Always keep screenshot if either remote or local has one
+          screenshotUrl: lt.screenshotUrl || existing.screenshotUrl || '',
+          notes: lt.notes || existing.notes || '',
+          lessonsLearned: lt.lessonsLearned || existing.lessonsLearned || '',
+          tags: lt.tags?.length ? lt.tags : existing.tags,
+        });
+      } else {
+        mergedTradesMap.set(key, lt);
+      }
+    });
+
+    const finalTrades = Array.from(mergedTradesMap.values());
 
     // Safe Merge: Merge remote journal entries with local journal entries
     const currentLocalEntries = useJournalStore.getState().entries || [];

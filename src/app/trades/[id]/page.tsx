@@ -12,6 +12,7 @@ import {
 import { toast } from 'sonner';
 import AppLayout from '@/components/layout/AppLayout';
 import { useTradeStore, useCommentsStore, isSupabaseConfigured, supabase } from '@/lib/store';
+import { uploadScreenshotToStorage } from '@/lib/supabase';
 import { getEmotionEmoji, formatCurrency, getRelativeTime, compressAndReadImage } from '@/lib/utils';
 import { Market, Direction, Session, Timeframe, Emotion, MARKETS, DIRECTIONS, SESSIONS, TIMEFRAMES, EMOTIONS } from '@/lib/types';
 
@@ -144,24 +145,12 @@ export default function TradeDetailPage() {
       // 2. Attempt cloud storage upload in background if Supabase is active
       if (isSupabaseConfigured && supabase) {
         try {
-          const fileExt = file.name.split('.').pop() || 'jpg';
-          const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-          const filePath = `screenshots/${fileName}`;
-
-          const { error } = await supabase.storage
-            .from('screenshots')
-            .upload(filePath, file, { upsert: true });
-
-          if (!error) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('screenshots')
-              .getPublicUrl(filePath);
-            if (publicUrl) {
-              setEditScreenshotUrl(publicUrl);
-            }
+          const publicUrl = await uploadScreenshotToStorage(file);
+          if (publicUrl) {
+            setEditScreenshotUrl(publicUrl);
           }
         } catch (cloudErr) {
-          console.warn('Cloud storage sync skipped, image preserved as compressed local draft:', cloudErr);
+          console.warn('Cloud storage upload skipped, preserving compressed local image:', cloudErr);
         }
       }
 
