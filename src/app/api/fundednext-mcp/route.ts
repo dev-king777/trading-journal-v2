@@ -32,7 +32,7 @@ async function mcpCall(endpoint: string, token: string, method: string, params: 
 function extractDataFromResponse(json: any): any[] | null {
   if (!json) return null;
 
-  // Check for errors
+  // Check for errors (including isError flag from MCP)
   if (json.error) {
     console.warn('MCP response error:', json.error);
     return null;
@@ -41,12 +41,18 @@ function extractDataFromResponse(json: any): any[] | null {
   const result = json.result;
   if (!result) return null;
 
+  // Check for MCP tool errors (e.g., "Unknown tool")
+  if (result.isError) {
+    console.warn('MCP tool error:', result.content?.[0]?.text);
+    return null;
+  }
+
   // Format 1: result.structuredContent.data (array)
   if (result.structuredContent?.data && Array.isArray(result.structuredContent.data)) {
     return result.structuredContent.data;
   }
 
-  // Format 2: result.content[0].text (JSON string)
+  // Format 2: result.content[0].text (JSON string) - main format for FundedNext MCP
   if (result.content && Array.isArray(result.content)) {
     for (const item of result.content) {
       if (item.text) {
@@ -54,7 +60,12 @@ function extractDataFromResponse(json: any): any[] | null {
           const parsed = JSON.parse(item.text);
           if (Array.isArray(parsed)) return parsed;
           if (parsed?.data && Array.isArray(parsed.data)) return parsed.data;
+          // FundedNext paginated format: trades: { current_page, data: [...] }
+          if (parsed?.trades?.data && Array.isArray(parsed.trades.data)) return parsed.trades.data;
+          // Plain array of trades
           if (parsed?.trades && Array.isArray(parsed.trades)) return parsed.trades;
+          // Other nested paginated formats
+          if (parsed?.trading_history?.data && Array.isArray(parsed.trading_history.data)) return parsed.trading_history.data;
           if (parsed?.trading_history && Array.isArray(parsed.trading_history)) return parsed.trading_history;
           // Single object (like a single account)
           if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -69,7 +80,10 @@ function extractDataFromResponse(json: any): any[] | null {
 
   // Format 3: Direct data in result
   if (Array.isArray(result.data)) return result.data;
+  // Paginated trades in result
+  if (result.trades?.data && Array.isArray(result.trades.data)) return result.trades.data;
   if (Array.isArray(result.trades)) return result.trades;
+  if (result.trading_history?.data && Array.isArray(result.trading_history.data)) return result.trading_history.data;
   if (Array.isArray(result.trading_history)) return result.trading_history;
 
   return null;
@@ -357,22 +371,22 @@ export async function POST(req: Request) {
           exitPrice: closePrice,
           stopLoss: stopLoss,
           takeProfit: takeProfit,
-          positionSize: lots > 100 ? lots / 100 : lots,
-          fees: Math.abs(Number(t.commission || t.fee || t.swap || 0)),
+          positionSize: lots,
+          fees: Math.abs(Number(t.commission || 0)) + Math.abs(Number(t.swap || 0)),
           pnl: profit,
           session: 'New York',
           strategy: 'FundedNext Prop Trade',
           setup: 'MT5 Live Execution',
           timeframe: '15m',
           date: formattedDate,
-          duration: '30m',
+          duration: t.trade_duration || '30m',
           rating: profit > 0 ? 5 : 3,
           emotionBefore: 'Calm',
           emotionDuring: 'Disciplined',
           emotionAfter: profit > 0 ? 'Confident' : 'Calm',
           confidenceLevel: 8,
           isMistake: false,
-          lessonsLearned: 'Live FundedNext MT5 Trade imported via MCP.',
+          lessonsLearned: `Live FundedNext MT5 Trade. PnL%: ${t.pnl_percentage || 'N/A'}%, RR: ${t.rr_ratio || 'N/A'}`,
           screenshotUrl: '',
           tradingViewLink: '',
           notes: `FundedNext Ticket #${t.ticket || t.id || t.order || 'LIVE'}`,
