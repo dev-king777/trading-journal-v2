@@ -1,19 +1,62 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Target, TrendingUp, Shield, AlertTriangle, CheckCircle2,
   Calendar, DollarSign, Zap, ChevronDown, ChevronUp,
   Loader2, RefreshCcw, Wallet, BarChart3, Info
 } from 'lucide-react';
-import { useTradeStore, useFundedNextStore } from '@/lib/store';
+import { useTradeStore, useFundedNextStore, isSupabaseConfigured, supabase } from '@/lib/store';
 import { toast } from 'sonner';
 
 interface PayoutGoal {
   objective: number;
   days: number;
   startDate: string;
+}
+
+// Supabase helpers for goal persistence
+const GOAL_SUPABASE_KEY = 'payout_goal';
+const GOAL_LOCAL_KEY = 'draga-payout-goal';
+
+async function saveGoalToSupabase(goal: PayoutGoal): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    // Use upsert: insert if not exists, update if exists
+    await supabase.from('app_settings').upsert(
+      { key: GOAL_SUPABASE_KEY, value: JSON.stringify(goal), updated_at: new Date().toISOString() },
+      { onConflict: 'key' }
+    );
+  } catch (err) {
+    console.warn('[PayoutTracker] Supabase goal save failed, using localStorage only:', err);
+  }
+}
+
+async function loadGoalFromSupabase(): Promise<PayoutGoal | null> {
+  if (!isSupabaseConfigured || !supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', GOAL_SUPABASE_KEY)
+      .single();
+
+    if (error || !data?.value) return null;
+    return JSON.parse(data.value) as PayoutGoal;
+  } catch (err) {
+    console.warn('[PayoutTracker] Supabase goal load failed:', err);
+    return null;
+  }
+}
+
+async function removeGoalFromSupabase(): Promise<void> {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    await supabase.from('app_settings').delete().eq('key', GOAL_SUPABASE_KEY);
+  } catch (err) {
+    console.warn('[PayoutTracker] Supabase goal delete failed:', err);
+  }
 }
 
 export default function PayoutTracker() {
@@ -26,27 +69,70 @@ export default function PayoutTracker() {
   const [daysInput, setDaysInput] = useState('');
   const [isSetup, setIsSetup] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [goalLoading, setGoalLoading] = useState(true);
 
-  // Load saved goal from localStorage
+  // Track if auto-sync has been attempted this session
+  const autoSyncAttempted = useRef(false);
+
+  // Load saved goal: Supabase first, then localStorage fallback
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('draga-payout-goal');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setGoal(parsed);
+    let cancelled = false;
+
+    async function loadGoal() {
+      // Try Supabase first
+      const supabaseGoal = await loadGoalFromSupabase();
+      if (!cancelled && supabaseGoal) {
+        setGoal(supabaseGoal);
         setIsSetup(true);
+        // Also update localStorage for offline access
+        localStorage.setItem(GOAL_LOCAL_KEY, JSON.stringify(supabaseGoal));
+        setGoalLoading(false);
+        return;
       }
-    } catch {}
+
+      // Fallback to localStorage
+      if (!cancelled) {
+        try {
+          const saved = localStorage.getItem(GOAL_LOCAL_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            setGoal(parsed);
+            setIsSetup(true);
+            // Back-sync to Supabase for cross-device access
+            saveGoalToSupabase(parsed);
+          }
+        } catch {}
+        setGoalLoading(false);
+      }
+    }
+
+    loadGoal();
+    return () => { cancelled = true; };
   }, []);
 
-  // Try MCP connection silently in background (never blocks UI)
-  const [mcpAttempted, setMcpAttempted] = useState(false);
+  // Auto-connect + auto-sync FundedNext on mount
   useEffect(() => {
-    if (token && !isConnected && !isSyncing && !mcpAttempted) {
-      setMcpAttempted(true);
-      fnStore.connect(token).catch(() => {});
-    }
-  }, [token, isConnected, isSyncing, mcpAttempted]);
+    if (autoSyncAttempted.current) return;
+    if (!token) return;
+
+    autoSyncAttempted.current = true;
+
+    const doAutoSync = async () => {
+      try {
+        if (!isConnected) {
+          await fnStore.connect(token);
+        } else {
+          await fnStore.sync();
+        }
+      } catch (err) {
+        console.warn('[PayoutTracker] Auto-sync failed:', err);
+      }
+    };
+
+    // Small delay to let the page render first
+    const timer = setTimeout(doAutoSync, 1500);
+    return () => clearTimeout(timer);
+  }, [token, isConnected]);
 
   // Use MCP balance if available, otherwise calculate from trades
   const accountBalance = account?.balance || 0;
@@ -117,7 +203,7 @@ export default function PayoutTracker() {
     };
   }, [trades, goal, accountBalance, initialBalance]);
 
-  const handleSetGoal = () => {
+  const handleSetGoal = async () => {
     const obj = parseFloat(objectiveInput);
     const days = parseInt(daysInput);
     if (!obj || obj <= 0) { toast.error('Enter a valid profit objective'); return; }
@@ -130,16 +216,24 @@ export default function PayoutTracker() {
     };
     setGoal(newGoal);
     setIsSetup(true);
-    localStorage.setItem('draga-payout-goal', JSON.stringify(newGoal));
+
+    // Save to BOTH localStorage and Supabase
+    localStorage.setItem(GOAL_LOCAL_KEY, JSON.stringify(newGoal));
+    await saveGoalToSupabase(newGoal);
+
     toast.success(`Payout goal set: $${obj} in ${days} days!`);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     setGoal(null);
     setIsSetup(false);
     setObjectiveInput('');
     setDaysInput('');
-    localStorage.removeItem('draga-payout-goal');
+
+    // Remove from BOTH localStorage and Supabase
+    localStorage.removeItem(GOAL_LOCAL_KEY);
+    await removeGoalFromSupabase();
+
     toast.info('Payout goal reset');
   };
 
@@ -172,6 +266,22 @@ export default function PayoutTracker() {
 
   const status = getStatusInfo();
 
+  // Show loading state while goal loads
+  if (goalLoading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl bg-card border border-border-subtle overflow-hidden p-6"
+      >
+        <div className="flex items-center gap-3">
+          <Loader2 className="w-5 h-5 animate-spin text-accent-blue" />
+          <span className="text-sm text-foreground-subtle">Loading Payout Tracker...</span>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -191,18 +301,21 @@ export default function PayoutTracker() {
               <h3 className="text-base font-bold text-foreground">Payout Goal Tracker</h3>
               <p className="text-xs text-foreground-subtle">
                 {isConnected && account
-                  ? `${account.accountType} • $${accountBalance.toLocaleString()}`
+                  ? `${account.accountType} | ${account.accountNumber} • $${accountBalance.toLocaleString()}`
+                  : isSyncing
+                  ? 'Syncing FundedNext...'
                   : 'Connect FundedNext to auto-sync'
                 }
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isConnected && (
+            {(isConnected || token) && (
               <button
                 onClick={handleSync}
                 disabled={isSyncing}
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-foreground-subtle hover:text-foreground transition-all"
+                title="Sync FundedNext"
               >
                 {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
               </button>
