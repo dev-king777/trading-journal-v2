@@ -6,7 +6,7 @@ import {
   Search, Filter, Plus, X, Download, Upload, Trash2, Archive, Star,
   Edit2, ChevronRight, FileDown, Eye, CheckSquare, Square, Sparkles
 } from 'lucide-react';
-import { useTradeStore } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useFundedNextStore, useTradeStore } from '@/lib/store';
 import { MARKETS, DIRECTIONS, TRADE_RESULTS, Market, Direction, Session, Timeframe, Emotion, Trade } from '@/lib/types';
 import TradeCard from '@/components/trades/TradeCard';
 import DragaAiLogger from './DragaAiLogger';
@@ -18,8 +18,13 @@ const PAGE_SIZE = 12;
 
 export default function TradesListContent() {
   const {
-    trades, bulkDelete, deleteAllTrades, bulkArchive, bulkEdit
+    trades: allTrades, bulkDelete, bulkArchive, bulkEdit
   } = useTradeStore();
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
+  const trades = useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
 
   const [search, setSearch] = useState('');
   const [marketFilter, setMarketFilter] = useState('');
@@ -411,8 +416,8 @@ export default function TradesListContent() {
       return;
     }
     if (window.confirm(`Are you sure you want to PERMANENTLY delete all ${trades.length} trades? This action cannot be undone.`)) {
-      await deleteAllTrades();
-      toast.success('All trades have been deleted');
+      await bulkDelete(trades.map((trade) => trade.id));
+      toast.success(`All trades for account ${selectedAccountNumber} have been deleted`);
     }
   };
 
@@ -430,7 +435,7 @@ export default function TradesListContent() {
             {filteredTrades.length} trade{filteredTrades.length !== 1 ? 's' : ''} logged
           </p>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:flex-wrap">
           {/* Hidden Import file input */}
           <input
             type="file"
@@ -440,24 +445,24 @@ export default function TradesListContent() {
             className="hidden"
           />
 
-          <button onClick={() => fileInputRef.current?.click()} className="btn-secondary" title="Import CSV">
+          <button onClick={() => fileInputRef.current?.click()} className="btn-secondary w-full sm:w-auto" title="Import CSV">
             <Upload className="w-4 h-4" />
             <span className="hidden md:inline">Import CSV</span>
           </button>
 
-          <button onClick={handleCSVExport} className="btn-secondary" title="Export CSV">
+          <button onClick={handleCSVExport} className="btn-secondary w-full sm:w-auto" title="Export CSV">
             <Download className="w-4 h-4" />
             <span className="hidden md:inline">CSV</span>
           </button>
 
-          <button onClick={handlePDFExport} className="btn-secondary" title="Export Report PDF">
+          <button onClick={handlePDFExport} className="btn-secondary w-full sm:w-auto" title="Export Report PDF">
             <FileDown className="w-4 h-4" />
             <span className="hidden md:inline">PDF</span>
           </button>
 
           <button
             onClick={() => setShowDragaModal(true)}
-            className="btn-secondary border-yellow-500/20 hover:border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/5"
+            className="btn-secondary w-full sm:w-auto border-yellow-500/20 hover:border-yellow-500/50 text-yellow-500 hover:bg-yellow-500/5"
             title="Log with Draga AI"
           >
             <Sparkles className="w-4 h-4 text-yellow-500 animate-pulse" />
@@ -466,14 +471,14 @@ export default function TradesListContent() {
 
           <button
             onClick={handleDeleteAllTrades}
-            className="btn-secondary border-red-500/20 hover:border-red-500/50 text-red-400 hover:bg-red-500/10"
+            className="btn-secondary w-full sm:w-auto border-red-500/20 hover:border-red-500/50 text-red-400 hover:bg-red-500/10"
             title="Delete All Trades"
           >
             <Trash2 className="w-4 h-4 text-red-400" />
             <span className="hidden sm:inline">Delete All</span>
           </button>
 
-          <Link href="/trades/new" className="btn-primary">
+          <Link href="/trades/new" className="btn-primary w-full sm:w-auto">
             <Plus className="w-4 h-4" />
             New Trade
           </Link>
@@ -487,7 +492,7 @@ export default function TradesListContent() {
         transition={{ delay: 0.1 }}
         className="space-y-3"
       >
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="grid grid-cols-[auto_1fr] sm:flex sm:flex-wrap items-center gap-2 sm:gap-3">
           {/* Selection mode toggle */}
           <button
             onClick={toggleSelectionMode}
@@ -499,7 +504,7 @@ export default function TradesListContent() {
           </button>
 
           {/* Search */}
-          <div className="relative flex-1 min-w-[140px]">
+          <div className="relative min-w-0 sm:flex-1 sm:min-w-[140px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-foreground-subtle" />
             <input
               type="text"
@@ -513,7 +518,7 @@ export default function TradesListContent() {
           {/* Filter toggle */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`btn-secondary relative ${showFilters ? 'border-accent-blue/40 text-accent-blue' : ''}`}
+            className={`btn-secondary relative w-full sm:w-auto ${showFilters ? 'border-accent-blue/40 text-accent-blue' : ''}`}
           >
             <Filter className="w-4 h-4" />
             Filters
@@ -528,7 +533,7 @@ export default function TradesListContent() {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="input-field w-auto pr-8 appearance-none cursor-pointer"
+            className="input-field w-full sm:w-auto pr-8 appearance-none cursor-pointer"
             style={{ backgroundImage: 'none' }}
           >
             <option value="date">Newest</option>
@@ -543,9 +548,9 @@ export default function TradesListContent() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex flex-wrap gap-2 p-4 rounded-xl bg-card border border-border-subtle"
+            className="flex flex-wrap gap-3 p-3 sm:p-4 rounded-xl bg-card border border-border-subtle overflow-x-auto"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-max">
               <span className="text-xs text-foreground-subtle font-medium">Market:</span>
               {MARKETS.map((m) => (
                 <button
@@ -564,7 +569,7 @@ export default function TradesListContent() {
 
             <div className="w-full" />
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-max">
               <span className="text-xs text-foreground-subtle font-medium">Direction:</span>
               {DIRECTIONS.map((d) => (
                 <button
@@ -583,7 +588,7 @@ export default function TradesListContent() {
 
             <div className="w-full" />
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-max">
               <span className="text-xs text-foreground-subtle font-medium">Result:</span>
               {TRADE_RESULTS.map((r) => (
                 <button

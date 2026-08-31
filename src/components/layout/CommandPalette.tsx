@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -20,12 +20,17 @@ import {
   Star,
   Coins,
 } from 'lucide-react';
-import { useTradeStore, useJournalStore } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useFundedNextStore, useTradeStore, useJournalStore } from '@/lib/store';
 
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
-  const trades = useTradeStore((s) => s.trades);
+  const allTrades = useTradeStore((s) => s.trades);
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
+  const trades = useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
   const journalEntries = useJournalStore((s) => s.entries);
 
   const toggle = useCallback(() => {

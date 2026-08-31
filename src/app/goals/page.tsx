@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Target, TrendingUp, Shield, Flame, Plus, Check, Trash2, Award } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { useTradeStore, useGoalsStore } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useFundedNextStore, useTradeStore, useGoalsStore } from '@/lib/store';
 import { toast } from 'sonner';
 
 function ProgressRing({
@@ -35,9 +35,14 @@ function ProgressRing({
 }
 
 export default function GoalsPage() {
-  const trades = useTradeStore((s) => s.trades);
+  const allTrades = useTradeStore((s) => s.trades);
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
+  const trades = useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
   const getStats = useTradeStore((s) => s.getStats);
-  const stats = getStats();
+  const stats = getStats(trades);
 
   const { goals, addGoal, updateGoal, deleteGoal } = useGoalsStore();
 

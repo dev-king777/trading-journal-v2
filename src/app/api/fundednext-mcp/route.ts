@@ -3,6 +3,36 @@ import { FundedNextAccount, Trade } from '@/lib/types';
 
 const MCP_ENDPOINT = 'https://mcp.fundednext.com';
 
+export const maxDuration = 60;
+
+function mapFundedNextAccount(raw: any): FundedNextAccount {
+  const providerAccountId = String(raw.id ?? raw.account_id ?? raw.login ?? '');
+  const startingBalance = Number(raw.starting_balance || raw.plan?.startingBalance || raw.startingBalance || 6000);
+  const balance = Number(raw.balance ?? startingBalance);
+  const equity = Number(raw.equity ?? balance);
+  const planTitle = raw.plan?.title || (typeof raw.plan === 'string' ? raw.plan : null) || raw.plan_title || raw.type || raw.accountType || `FundedNext ${startingBalance / 1000}K Challenge`;
+  const login = String(raw.login ?? raw.account_number ?? raw.accountNumber ?? `FN-${providerAccountId}`);
+  const isBreached = raw.breached === true || Number(raw.breached) === 1;
+  const profitTarget = startingBalance * 0.10;
+
+  return {
+    providerAccountId,
+    accountNumber: login,
+    accountType: planTitle,
+    balance,
+    equity,
+    initialBalance: startingBalance,
+    profitTarget,
+    maxDailyLossLimit: startingBalance * 0.05,
+    currentDailyLoss: Math.max(0, balance - equity),
+    maxOverallLossLimit: startingBalance * 0.10,
+    currentOverallLoss: Math.max(0, startingBalance - equity),
+    payoutEligible: !isBreached && balance > startingBalance,
+    status: isBreached ? 'Breached' : (balance >= startingBalance + profitTarget ? 'Passed' : 'Active'),
+    lastSyncedAt: new Date().toISOString(),
+  };
+}
+
 // Helper: call the MCP server with a JSON-RPC request
 async function mcpCall(endpoint: string, token: string, method: string, params: any = {}, id: number = 1) {
   const res = await fetch(endpoint, {
@@ -17,12 +47,21 @@ async function mcpCall(endpoint: string, token: string, method: string, params: 
       method,
       params,
     }),
+    signal: AbortSignal.timeout(12_000),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     console.error(`MCP ${method} HTTP ${res.status}:`, text.slice(0, 500));
-    return null;
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {
+        error: {
+          message: res.status === 401 ? 'FundedNext token is invalid or revoked.' : `FundedNext MCP request failed (${res.status}).`,
+        },
+      };
+    }
   }
 
   return res.json();
@@ -47,10 +86,61 @@ function extractDataFromResponse(json: any): any[] | null {
     return null;
   }
 
+  const findArrayPayload = (value: any): any[] | null => {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== 'object') return null;
+    for (const key of ['data', 'accounts', 'trades', 'trading_history', 'items', 'results']) {
+      const nested = findArrayPayload(value[key]);
+      if (nested) return nested;
+    }
+    return null;
+  };
+
+  const looksLikeTrade = (value: any) => value && typeof value === 'object' && (
+    'ticket' in value ||
+    ('symbol' in value && ('profit' in value || 'pnl' in value)) ||
+    ('entry_price' in value && 'exit_price' in value) ||
+    ('open_price' in value && 'close_price' in value)
+  );
+
+  const collectTradeRecordsDeep = (value: any, records: any[] = []): any[] => {
+    if (!value || typeof value !== 'object') return records;
+    if (Array.isArray(value)) {
+      const tradeRecords = value.filter(looksLikeTrade);
+      if (tradeRecords.length > 0) {
+        records.push(...tradeRecords);
+      } else {
+        for (const item of value) collectTradeRecordsDeep(item, records);
+      }
+      return records;
+    }
+    for (const nestedValue of Object.values(value)) {
+      collectTradeRecordsDeep(nestedValue, records);
+    }
+    return records;
+  };
+
+  const uniqueTradeRecords = (records: any[]) => {
+    const seen = new Set<string>();
+    return records.filter((trade) => {
+      const key = String(
+        trade.ticket ?? trade.order ?? trade.id ??
+        `${trade.symbol || trade.pair}:${trade.open_time || trade.date}:${trade.entry_price || trade.open_price}`
+      );
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
+
   // Format 1: result.structuredContent.data (array)
   if (result.structuredContent?.data && Array.isArray(result.structuredContent.data)) {
     return result.structuredContent.data;
   }
+  const structuredTrades = uniqueTradeRecords(collectTradeRecordsDeep(result.structuredContent));
+  if (structuredTrades.length > 0) return structuredTrades;
+  const structuredArray = findArrayPayload(result.structuredContent);
+  if (structuredArray) return structuredArray;
 
   // Format 2: result.content[0].text (JSON string) - main format for FundedNext MCP
   if (result.content && Array.isArray(result.content)) {
@@ -58,8 +148,10 @@ function extractDataFromResponse(json: any): any[] | null {
       if (item.text) {
         try {
           const parsed = JSON.parse(item.text);
-          if (Array.isArray(parsed)) return parsed;
-          if (parsed?.data && Array.isArray(parsed.data)) return parsed.data;
+          const parsedTrades = uniqueTradeRecords(collectTradeRecordsDeep(parsed));
+          if (parsedTrades.length > 0) return parsedTrades;
+          const parsedArray = findArrayPayload(parsed);
+          if (parsedArray) return parsedArray;
           // FundedNext paginated format: trades: { current_page, data: [...] }
           if (parsed?.trades?.data && Array.isArray(parsed.trades.data)) return parsed.trades.data;
           // Plain array of trades
@@ -67,10 +159,6 @@ function extractDataFromResponse(json: any): any[] | null {
           // Other nested paginated formats
           if (parsed?.trading_history?.data && Array.isArray(parsed.trading_history.data)) return parsed.trading_history.data;
           if (parsed?.trading_history && Array.isArray(parsed.trading_history)) return parsed.trading_history;
-          // Single object (like a single account)
-          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            return [parsed];
-          }
         } catch (e) {
           console.warn('Failed to parse MCP content text:', item.text?.slice(0, 200));
         }
@@ -89,10 +177,58 @@ function extractDataFromResponse(json: any): any[] | null {
   return null;
 }
 
+function extractMcpError(json: any): string | null {
+  if (!json) return null;
+  if (json.error?.message) return json.error.message;
+  if (json.result?.structuredContent?.message) return json.result.structuredContent.message;
+  const text = json.result?.content?.find((item: any) => item?.text)?.text;
+  if (!text) return null;
+  try {
+    return JSON.parse(text)?.message || null;
+  } catch {
+    return null;
+  }
+}
+
+function extractTradingCycles(json: any): any[] {
+  if (!json?.result) return [];
+
+  const findCyclesDeep = (value: any): any[] => {
+    if (!value || typeof value !== 'object') return [];
+    if (Array.isArray(value.trading_cycles)) return value.trading_cycles;
+    if (Array.isArray(value.tradingCycles)) return value.tradingCycles;
+    for (const nested of Object.values(value)) {
+      const cycles = findCyclesDeep(nested);
+      if (cycles.length > 0) return cycles;
+    }
+    return [];
+  };
+
+  const structuredCycles = findCyclesDeep(json.result.structuredContent);
+  if (structuredCycles.length > 0) return structuredCycles;
+
+  const content = json.result.content;
+  if (!Array.isArray(content)) return [];
+  for (const item of content) {
+    if (!item?.text) continue;
+    try {
+      let parsed: any = JSON.parse(item.text);
+      for (let depth = 0; depth < 2 && typeof parsed === 'string'; depth++) {
+        parsed = JSON.parse(parsed);
+      }
+      const cycles = findCyclesDeep(parsed);
+      if (cycles.length > 0) return cycles;
+    } catch (error) {
+      console.warn('[FundedNext MCP] Could not parse trading cycles:', error);
+    }
+  }
+  return [];
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { action, token, serverUrl } = body;
+    const { action, token, serverUrl, accountNumber, providerAccountId } = body;
 
     const cleanToken = (token || '').trim();
     if (!cleanToken) {
@@ -104,77 +240,84 @@ export async function POST(req: Request) {
 
     const endpoint = serverUrl || MCP_ENDPOINT;
 
-    // ========================================================
-    // Step 1: Discover available tools via tools/list
-    // ========================================================
-    let availableTools: string[] = [];
-    try {
-      const listRes = await mcpCall(endpoint, cleanToken, 'tools/list', {}, 0);
-      if (listRes?.result?.tools && Array.isArray(listRes.result.tools)) {
-        availableTools = listRes.result.tools.map((t: any) => t.name || t);
-        console.log('[FundedNext MCP] Available tools:', availableTools);
-      } else {
+    const discoverAvailableTools = async (): Promise<string[]> => {
+      try {
+        const listRes = await mcpCall(endpoint, cleanToken, 'tools/list', {}, 0);
+        if (listRes?.result?.tools && Array.isArray(listRes.result.tools)) {
+          const tools = listRes.result.tools.map((tool: any) => tool.name || tool);
+          console.log('[FundedNext MCP] Available tools:', tools);
+          return tools;
+        }
         console.log('[FundedNext MCP] tools/list response:', JSON.stringify(listRes)?.slice(0, 500));
+      } catch (error) {
+        console.warn('[FundedNext MCP] tools/list failed:', error);
       }
-    } catch (e) {
-      console.warn('[FundedNext MCP] tools/list failed:', e);
-    }
+      return [];
+    };
+
+    // Account selection only needs get_accounts, so skip one network round trip.
+    let availableTools: string[] = accountNumber || providerAccountId
+      ? await discoverAvailableTools()
+      : [];
 
     // ========================================================
     // Step 2: Call get_accounts to get account data
     // ========================================================
     const accountsJson = await mcpCall(endpoint, cleanToken, 'tools/call', {
       name: 'get_accounts',
-      arguments: {}
+      arguments: { type: 'active', tab: 'forex', page: 1, limit: 20 }
     }, 1);
 
-    let accountDataRaw: any = null;
     const accountsList = extractDataFromResponse(accountsJson);
 
-    if (accountsList && accountsList.length > 0) {
-      accountDataRaw = accountsList[0];
-    }
-
-    if (!accountDataRaw) {
+    if (!accountsList || accountsList.length === 0) {
+      const rawMcpError = extractMcpError(accountsJson);
+      const mcpError = rawMcpError === 'invalid_token'
+        ? 'FundedNext token is invalid or revoked. Add a new token to reconnect.'
+        : rawMcpError;
       console.error('[FundedNext MCP] get_accounts raw response:', JSON.stringify(accountsJson)?.slice(0, 1000));
       return NextResponse.json(
-        { success: false, error: 'No active FundedNext account found for this token.' },
-        { status: 404 }
+        { success: false, error: mcpError || 'No active FundedNext account found for this token.' },
+        { status: mcpError ? 401 : 404 }
       );
     }
 
+    const accounts = accountsList.map(mapFundedNextAccount);
+    const requestedAccountNumber = String(accountNumber || '');
+    const requestedProviderId = String(providerAccountId || '');
+    let selectedIndex = -1;
+
+    if (requestedAccountNumber || requestedProviderId) {
+      selectedIndex = accounts.findIndex((candidate) =>
+        (requestedAccountNumber && candidate.accountNumber === requestedAccountNumber) ||
+        (requestedProviderId && candidate.providerAccountId === requestedProviderId)
+      );
+    } else if (accounts.length === 1) {
+      selectedIndex = 0;
+    }
+
+    if (selectedIndex < 0) {
+      return NextResponse.json({
+        success: true,
+        selectionRequired: true,
+        message: 'Choose a FundedNext account to continue.',
+        accounts,
+        account: null,
+        trades: [],
+      });
+    }
+
+    if (availableTools.length === 0) {
+      availableTools = await discoverAvailableTools();
+    }
+
+    const accountDataRaw = accountsList[selectedIndex];
+    const account = accounts[selectedIndex];
+
     console.log('[FundedNext MCP] Account data keys:', Object.keys(accountDataRaw));
 
-    const accountId = accountDataRaw.id;
-    const startingBalance = Number(accountDataRaw.starting_balance || accountDataRaw.plan?.startingBalance || accountDataRaw.startingBalance || 6000);
-    const balance = Number(accountDataRaw.balance || startingBalance);
-    const equity = Number(accountDataRaw.equity || balance);
-    const planTitle = accountDataRaw.plan?.title || accountDataRaw.type || accountDataRaw.accountType || `FundedNext ${startingBalance / 1000}K Challenge`;
-    const login = accountDataRaw.login || 'FN-' + accountId;
-    const isBreached = Boolean(accountDataRaw.breached);
-
-    // Calculate rules thresholds based on starting balance
-    const maxDailyLossLimit = startingBalance * 0.05;
-    const maxOverallLossLimit = startingBalance * 0.10;
-    const profitTarget = startingBalance * 0.10;
-    const currentDailyLoss = Math.max(0, balance - equity);
-    const currentOverallLoss = Math.max(0, startingBalance - equity);
-
-    const account: FundedNextAccount = {
-      accountNumber: String(login),
-      accountType: planTitle,
-      balance: balance,
-      equity: equity,
-      initialBalance: startingBalance,
-      profitTarget: profitTarget,
-      maxDailyLossLimit: maxDailyLossLimit,
-      currentDailyLoss: currentDailyLoss,
-      maxOverallLossLimit: maxOverallLossLimit,
-      currentOverallLoss: currentOverallLoss,
-      payoutEligible: !isBreached && balance > startingBalance,
-      status: isBreached ? 'Breached' : (balance >= startingBalance + profitTarget ? 'Passed' : 'Active'),
-      lastSyncedAt: new Date().toISOString(),
-    };
+    const accountId = account.providerAccountId;
+    const login = account.accountNumber;
 
     // ========================================================
     // Step 3: Fetch trade history using discovered tools
@@ -195,25 +338,12 @@ export async function POST(req: Request) {
 
     // If no trades in account data, try calling trade history tools
     if (rawTradesList.length === 0) {
-      // Build a prioritized list of tool candidates based on what's actually available
-      const allCandidates = [
-        // Exact tools from discovery
-        { name: 'get_trading_history', args: { account_id: accountId } },
+      // FundedNext exposes one authoritative closed-trade tool for CFD accounts.
+      const accountSpecificCandidates = [
         { name: 'get_trading_history', args: { account_id: Number(accountId) } },
-        { name: 'get_trading_history', args: { login: login } },
-        { name: 'get_trading_history', args: {} },
-        { name: 'get_trades', args: { account_id: accountId } },
-        { name: 'get_trades', args: {} },
-        { name: 'get_trade_history', args: { account_id: accountId } },
-        { name: 'get_trade_history', args: {} },
-        { name: 'get_closed_trades', args: { account_id: accountId } },
-        { name: 'get_closed_trades', args: {} },
-        { name: 'get_account_trades', args: { account_id: accountId } },
-        { name: 'get_account_trades', args: {} },
-        // Try with string ID
-        { name: 'get_trading_history', args: { account_id: String(accountId) } },
-        { name: 'get_trades', args: { account_id: String(accountId) } },
+        { name: 'get_trading_history', args: { account_id: accountId } },
       ];
+      const allCandidates = accountSpecificCandidates;
 
       // Prioritize tools that actually exist in the discovered list
       const prioritized = availableTools.length > 0
@@ -232,6 +362,8 @@ export async function POST(req: Request) {
         return true;
       });
 
+      let tradingCycles: any[] = [];
+
       for (const candidate of uniqueCandidates) {
         try {
           console.log(`[FundedNext MCP] Trying tool: ${candidate.name}(${JSON.stringify(candidate.args)})`);
@@ -242,6 +374,9 @@ export async function POST(req: Request) {
           }, 2);
 
           const parsedList = extractDataFromResponse(historyJson);
+          if (tradingCycles.length === 0) {
+            tradingCycles = extractTradingCycles(historyJson);
+          }
 
           if (parsedList && parsedList.length > 0) {
             rawTradesList = parsedList;
@@ -255,22 +390,47 @@ export async function POST(req: Request) {
         }
       }
 
-      // Last resort: Try also listing tools that contain 'trade' or 'history'
-      if (rawTradesList.length === 0 && availableTools.length > 0) {
-        const tradeRelatedTools = availableTools.filter(
-          t => t.includes('trade') || t.includes('history') || t.includes('order') || t.includes('position')
+      if (rawTradesList.length === 0 && tradingCycles.length > 0 && availableTools.includes('get_cycle_trading_history')) {
+        const cycleResponses = await Promise.all(
+          tradingCycles.map((cycle, index) => mcpCall(endpoint, cleanToken, 'tools/call', {
+            name: 'get_cycle_trading_history',
+            arguments: {
+              account_id: Number(accountId),
+              cycle_id: Number(cycle.id),
+            },
+          }, 10 + index))
         );
+
+        const cycleTrades = cycleResponses.flatMap((response) => extractDataFromResponse(response) || []);
+        const seenTrades = new Set<string>();
+        rawTradesList = cycleTrades.filter((trade: any) => {
+          const key = String(
+            trade.ticket ?? trade.order ?? trade.id ??
+            `${trade.symbol || trade.pair}:${trade.open_time || trade.date}:${trade.entry_price || trade.open_price}`
+          );
+          if (seenTrades.has(key)) return false;
+          seenTrades.add(key);
+          return true;
+        });
+        console.log(`[FundedNext MCP] Loaded ${rawTradesList.length} trades from ${tradingCycles.length} trading cycles.`);
+      }
+
+      // Retry only the authoritative trade-history tool. Never treat payments,
+      // requests, breaches, or other history records as trading activity.
+      if (rawTradesList.length === 0 && tradingCycles.length === 0 && availableTools.length > 0) {
+        const tradeRelatedTools = availableTools.filter(t => t === 'get_trading_history');
         console.log('[FundedNext MCP] Trade-related tools from discovery:', tradeRelatedTools);
 
         for (const toolName of tradeRelatedTools) {
           if (rawTradesList.length > 0) break;
 
-          for (const args of [
+          const fallbackArgs = [
             { account_id: accountId },
             { account_id: String(accountId) },
             { login: login },
-            {},
-          ]) {
+            ...(accounts.length === 1 ? [{}] : []),
+          ];
+          for (const args of fallbackArgs) {
             try {
               console.log(`[FundedNext MCP] Last resort trying: ${toolName}(${JSON.stringify(args)})`);
               const res = await mcpCall(endpoint, cleanToken, 'tools/call', {
@@ -304,7 +464,18 @@ export async function POST(req: Request) {
     let trades: Partial<Trade>[] = [];
 
     if (rawTradesList.length > 0) {
-      trades = rawTradesList.map((t: any) => {
+      const tradeRecords = rawTradesList.filter((item: any) => item && typeof item === 'object' && (
+        'ticket' in item ||
+        ('symbol' in item && ('profit' in item || 'pnl' in item)) ||
+        ('entry_price' in item && 'exit_price' in item) ||
+        ('open_price' in item && 'close_price' in item)
+      ));
+
+      if (tradeRecords.length !== rawTradesList.length) {
+        console.warn(`[FundedNext MCP] Ignored ${rawTradesList.length - tradeRecords.length} non-trade records.`);
+      }
+
+      trades = tradeRecords.map((t: any) => {
         const profit = Number(t.profit !== undefined ? t.profit : t.pnl !== undefined ? t.pnl : 0);
 
         // Detect direction
@@ -389,18 +560,28 @@ export async function POST(req: Request) {
           lessonsLearned: `Live FundedNext MT5 Trade. PnL%: ${t.pnl_percentage || 'N/A'}%, RR: ${t.rr_ratio || 'N/A'}`,
           screenshotUrl: '',
           tradingViewLink: '',
-          notes: `FundedNext Ticket #${t.ticket || t.id || t.order || 'LIVE'}`,
-          tags: ['FundedNext', 'PropFirm', 'MT5', 'MCP'],
+          notes: `FundedNext ${account.accountNumber} Ticket #${t.ticket || t.id || t.order || 'LIVE'}`,
+          tags: ['FundedNext', `FundedNext:${account.accountNumber}`, 'PropFirm', 'MT5', 'MCP'],
           isFavorite: false,
           isArchived: false,
         };
       });
     }
 
+    const historicalNetPnl = trades.reduce((sum, trade) => sum + Number(trade.pnl || 0), 0);
+    const currentBalanceProfit = account.balance - account.initialBalance;
+    const inferredPayoutTotal = historicalNetPnl - currentBalanceProfit;
+    const minimumPayout = Math.max(10, account.initialBalance * 0.0025);
+    account.inferredPayoutTotal = inferredPayoutTotal >= minimumPayout
+      ? Math.round(inferredPayoutTotal * 100) / 100
+      : 0;
+
     return NextResponse.json({
       success: true,
       message: action === 'connect' ? 'FundedNext Live MCP Account connected!' : 'FundedNext live trades synced!',
       account: account,
+      accounts,
+      selectionRequired: false,
       trades: trades,
       debug: {
         availableTools,

@@ -9,6 +9,7 @@ import {
 import { Trade } from '@/lib/types';
 import { getRelativeTime } from '@/lib/utils';
 import { useTradeStore } from '@/lib/store';
+import { getManualTradeImages, getTradeResultImage, isPayoutTrade } from '@/lib/trade-images';
 
 interface TradeCardProps {
   trade: Trade;
@@ -17,13 +18,6 @@ interface TradeCardProps {
   onSelect?: (id: string) => void;
   selectionMode?: boolean;
 }
-
-const DEFAULT_CHARTS = [
-  'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1618044733300-9472054094ee?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1608248597481-496100c80836?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=600&q=80',
-];
 
 export default function TradeCard({
   trade,
@@ -34,17 +28,8 @@ export default function TradeCard({
 }: TradeCardProps) {
   const toggleFavorite = useTradeStore((s) => s.toggleFavorite);
 
-  // Pick a chart image based on the trade ID so it remains consistent
-  const getChartImage = () => {
-    if (trade.screenshotUrl && (trade.screenshotUrl.startsWith('http') || trade.screenshotUrl.startsWith('data:image'))) {
-      return trade.screenshotUrl;
-    }
-    // Fall back to a premium Unsplash chart screenshot
-    const charCodeSum = trade.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    return DEFAULT_CHARTS[charCodeSum % DEFAULT_CHARTS.length];
-  };
-
-  const chartUrl = getChartImage();
+  const chartUrl = getManualTradeImages(trade.screenshotUrl)[0] || getTradeResultImage(trade);
+  const payout = isPayoutTrade(trade);
 
   return (
     <motion.div
@@ -93,7 +78,7 @@ export default function TradeCard({
                 ? 'bg-[#ef4444]/20 text-[#ef4444] border border-[#ef4444]/30'
                 : 'bg-white/10 text-gray-400 border border-white/10'
             }`}>
-              {trade.pnl > 0 ? 'WIN' : trade.pnl < 0 ? 'LOSS' : 'BREAKEVEN'}
+              {payout ? 'PAYOUT' : trade.pnl > 0 ? 'WIN' : trade.pnl < 0 ? 'LOSS' : 'BREAKEVEN'}
             </span>
           </div>
           

@@ -216,6 +216,7 @@ export interface Comment {
 // ============================================================
 
 export interface FundedNextAccount {
+  providerAccountId: string;
   accountNumber: string;
   accountType: string;
   balance: number;
@@ -227,8 +228,18 @@ export interface FundedNextAccount {
   maxOverallLossLimit: number;
   currentOverallLoss: number;
   payoutEligible: boolean;
+  inferredPayoutTotal?: number;
   status: 'Passed' | 'Active' | 'Breached' | 'Pending';
   lastSyncedAt: string;
+}
+
+export interface FundedNextPayoutEvent {
+  id: string;
+  accountNumber: string;
+  amount: number;
+  peakBalance: number;
+  balanceAfterPayout: number;
+  detectedAt: string;
 }
 
 

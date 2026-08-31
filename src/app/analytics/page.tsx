@@ -7,7 +7,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line
 } from 'recharts';
 import AppLayout from '@/components/layout/AppLayout';
-import { useTradeStore } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useFundedNextStore, useTradeStore } from '@/lib/store';
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Clock, ShieldAlert, Award } from 'lucide-react';
 
 function CustomTooltip({ active, payload, label }: any) {
@@ -28,9 +28,14 @@ function CustomTooltip({ active, payload, label }: any) {
 
 export default function AnalyticsPage() {
   const [mounted, setMounted] = useState(false);
-  const trades = useTradeStore((s) => s.trades);
+  const allTrades = useTradeStore((s) => s.trades);
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
+  const trades = useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
   const getStats = useTradeStore((s) => s.getStats);
-  const stats = getStats();
+  const stats = getStats(trades);
 
   useEffect(() => { setMounted(true); }, []);
 

@@ -478,8 +478,8 @@ body {
   /* Mobile-safe button sizing */
   .btn-primary,
   .btn-secondary {
-    min-height: 40px;
-    padding: 8px 14px;
+    min-height: 44px;
+    padding: 9px 14px;
     font-size: 13px;
   }
 

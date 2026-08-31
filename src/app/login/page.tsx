@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Shield, Lock, User, ArrowRight, Loader2, Database } from 'lucide-react';
 import { toast } from 'sonner';
+import { useFundedNextStore } from '@/lib/store';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -41,7 +42,10 @@ export default function LoginPage() {
       localStorage.setItem('draga-authenticated', 'true');
       localStorage.setItem('draga-user', cleanUser);
 
-      toast.success(`Welcome back, ${cleanUser}! Opening dashboard...`);
+      // A fresh login always starts at the FundedNext account picker.
+      useFundedNextStore.getState().clearSelection();
+
+      toast.success(`Welcome back, ${cleanUser}! Choose your account to continue.`);
 
       // 3. Immediate synchronous navigation to Dashboard for mobile compatibility
       window.location.replace('/');

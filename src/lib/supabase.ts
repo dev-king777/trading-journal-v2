@@ -57,19 +57,34 @@ export const supabase = isSupabaseConfigured
 /**
  * Upload screenshot to Supabase Storage Bucket 'trade-screenshots'
  */
-export async function uploadScreenshotToStorage(file: File): Promise<string> {
+const MAX_SCREENSHOT_BYTES = 12 * 1024 * 1024;
+
+export async function uploadScreenshotToStorage(file: File, tradeId?: string): Promise<string> {
   if (!isSupabaseConfigured || !supabase) {
     throw new Error('Supabase client is not configured.');
   }
 
-  const fileExt = file.name.split('.').pop() || 'png';
-  const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-  const filePath = `screenshots/${fileName}`;
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Please choose a valid image file.');
+  }
 
-  const { data, error } = await supabase.storage
+  if (file.size > MAX_SCREENSHOT_BYTES) {
+    throw new Error('Screenshot must be smaller than 12 MB.');
+  }
+
+  const rawExt = file.name.split('.').pop()?.toLowerCase();
+  const fileExt = rawExt && /^[a-z0-9]+$/.test(rawExt) ? rawExt : 'jpg';
+  const owner = tradeId?.replace(/[^a-zA-Z0-9_-]/g, '') || 'drafts';
+  const uniqueId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const filePath = `trades/${owner}/${uniqueId}.${fileExt}`;
+
+  const { error } = await supabase.storage
     .from('trade-screenshots')
     .upload(filePath, file, {
-      cacheControl: '3600',
+      cacheControl: '31536000',
+      contentType: file.type,
       upsert: false,
     });
 
@@ -81,6 +96,10 @@ export async function uploadScreenshotToStorage(file: File): Promise<string> {
   const { data: publicUrlData } = supabase.storage
     .from('trade-screenshots')
     .getPublicUrl(filePath);
+
+  if (!publicUrlData.publicUrl) {
+    throw new Error('Storage did not return a public screenshot URL.');
+  }
 
   return publicUrlData.publicUrl;
 }

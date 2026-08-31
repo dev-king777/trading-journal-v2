@@ -8,6 +8,8 @@ import BottomNav from './BottomNav';
 import FloatingActionButton from './FloatingActionButton';
 import CommandPalette from './CommandPalette';
 import SplashScreen from './SplashScreen';
+import FundedNextAccountGate from '@/components/fundednext/FundedNextAccountGate';
+import FundedNextAccountSwitcher from '@/components/fundednext/FundedNextAccountSwitcher';
 import { useSettingsStore, useFundedNextStore, initializeAllStores, subscribeToRealtime, isSupabaseConfigured } from '@/lib/store';
 import { Toaster } from 'sonner';
 import { Database, LogOut } from 'lucide-react';
@@ -29,6 +31,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed);
   const settings = useSettingsStore((s) => s.settings);
+  const fundedNextToken = useFundedNextStore((s) => s.token);
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
   const [mounted, setMounted] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -48,6 +52,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       }
     }
 
+    const syncFundedNext = () => {
+      const current = useFundedNextStore.getState();
+      if (current.token && current.isConnected && current.selectedAccountNumber && !current.isSyncing) {
+        current.sync().catch(() => {});
+      }
+    };
+    const fundedNextSyncTimer = window.setInterval(syncFundedNext, 60_000);
+    window.addEventListener('focus', syncFundedNext);
+
     const splashShown = sessionStorage.getItem('splash-shown');
     if (splashShown) {
       setShowSplash(false);
@@ -62,6 +75,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return () => {
       if (unsubscribe) unsubscribe();
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('focus', syncFundedNext);
+      window.clearInterval(fundedNextSyncTimer);
     };
   }, []);
 
@@ -124,6 +139,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
+  if (!selectedAccountNumber) {
+    return (
+      <>
+        <Toaster position="bottom-right" />
+        <FundedNextAccountGate />
+      </>
+    );
+  }
+
   const pageTitle = pageTitles[pathname] || 'Trade Detail';
 
   return (
@@ -152,20 +176,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         className="min-h-screen pb-24 md:pb-8 max-w-full overflow-x-hidden"
       >
         {/* Top Header */}
-        <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-4 sm:px-8 border-b border-border-subtle bg-background/80 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-3 sm:px-8 border-b border-border-subtle bg-background/90 backdrop-blur-xl">
           <div className="flex items-center gap-3">
             <h1 className="text-base sm:text-lg font-semibold text-foreground">{pageTitle}</h1>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-1 sm:gap-4">
+            <FundedNextAccountSwitcher />
+
             {/* Connection Indicator */}
             {isSupabaseConfigured ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-profit/10 border border-profit/20 text-profit text-xs font-semibold">
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-profit/10 border border-profit/20 text-profit text-xs font-semibold">
                 <Database className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Supabase Cloud</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-semibold">
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 text-xs font-semibold">
                 <Database className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Offline Mode</span>
               </div>
@@ -175,7 +201,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {isSupabaseConfigured && (
               <button
                 onClick={handleLogout}
-                className="p-2 rounded-lg text-foreground-subtle hover:text-red-400 hover:bg-white/[0.04] transition-colors"
+                className="min-w-11 min-h-11 p-2 rounded-lg text-foreground-subtle hover:text-red-400 hover:bg-white/[0.04] transition-colors"
                 title="Sign Out"
               >
                 <LogOut className="w-4 h-4" />
@@ -192,7 +218,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 });
                 document.dispatchEvent(event);
               }}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-foreground-subtle hover:text-foreground hover:bg-white/[0.04] transition-colors"
+              className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-foreground-subtle hover:text-foreground hover:bg-white/[0.04] transition-colors"
             >
               <span className="hidden md:inline">Search</span>
               <kbd className="hidden md:flex items-center gap-0.5 px-1.5 py-0.5 bg-secondary rounded text-[10px] font-medium border border-border">
@@ -210,7 +236,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-            className="p-4 sm:p-8"
+            className="p-3 sm:p-8"
           >
             {children}
           </motion.div>

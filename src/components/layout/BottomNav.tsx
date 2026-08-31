@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, TrendingUp, Plus, BookOpen, Settings, Coins } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Plus, BookOpen, Coins } from 'lucide-react';
 
 const navItems = [
   { label: 'Home', href: '/', icon: LayoutDashboard },
@@ -11,7 +11,6 @@ const navItems = [
   { label: 'Add', href: '/trades/new', icon: Plus, isAction: true },
   { label: 'Calculator', href: '/calculator', icon: Coins },
   { label: 'Journal', href: '/journal', icon: BookOpen },
-  { label: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export default function BottomNav() {
@@ -21,8 +20,8 @@ export default function BottomNav() {
   if (pathname === '/login') return null;
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 bg-gradient-to-t from-background via-background/95 to-transparent pointer-events-none">
-      <nav className="pointer-events-auto max-w-md mx-auto h-16 bg-card/90 backdrop-blur-xl border border-border-subtle rounded-2xl flex items-center justify-around px-2 shadow-2xl shadow-black/40">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 bg-background/95 backdrop-blur-xl border-t border-border-subtle pointer-events-none">
+      <nav className="pointer-events-auto max-w-md mx-auto h-16 flex items-center justify-around px-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -32,9 +31,9 @@ export default function BottomNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex flex-col items-center justify-center -mt-6 group"
+                className="min-w-14 min-h-14 flex flex-col items-center justify-center -mt-5 group"
               >
-                <div className="w-13 h-13 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-600/30 transition-all group-active:scale-95 border-2 border-background">
+                <div className="w-12 h-12 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-600/30 transition-all group-active:scale-95 border-2 border-background">
                   <Icon className="w-6 h-6" />
                 </div>
                 <span className="text-[10px] font-semibold text-blue-400 mt-1">
@@ -48,7 +47,7 @@ export default function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center py-1 px-1.5 sm:px-2.5 rounded-xl transition-all ${
+              className={`min-w-14 min-h-14 flex flex-col items-center justify-center py-1 px-1.5 rounded-lg transition-all ${
                 isActive
                   ? 'text-blue-500 font-semibold'
                   : 'text-foreground-subtle hover:text-foreground'

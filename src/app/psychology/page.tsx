@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, Smile, AlertTriangle, Shield, TrendingUp, Target, Flame, Plus, Trash2 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { useTradeStore, useHabitsStore, useMoodStore } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useFundedNextStore, useTradeStore, useHabitsStore, useMoodStore } from '@/lib/store';
 import { getEmotionEmoji } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Emotion, EMOTIONS } from '@/lib/types';
@@ -36,9 +36,14 @@ function ScoreRing({ value, max, label, color }: { value: number; max: number; l
 }
 
 export default function PsychologyPage() {
-  const trades = useTradeStore((s) => s.trades);
+  const allTrades = useTradeStore((s) => s.trades);
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
+  const trades = useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
   const getStats = useTradeStore((s) => s.getStats);
-  const stats = getStats();
+  const stats = getStats(trades);
 
   const { habits, addHabit, toggleHabit, deleteHabit } = useHabitsStore();
   const { moodEntries, addMoodEntry, deleteMoodEntry } = useMoodStore();

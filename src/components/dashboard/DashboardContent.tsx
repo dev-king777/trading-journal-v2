@@ -7,7 +7,7 @@ import {
   Flame, Trophy, ArrowUp, ArrowDown,
   Brain, Smile, BarChart3, Zap
 } from 'lucide-react';
-import { useTradeStore } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useFundedNextStore, useTradeStore } from '@/lib/store';
 import { getGreeting } from '@/lib/utils';
 import StatCard from '@/components/dashboard/StatCard';
 import RecentTrades from '@/components/dashboard/RecentTrades';
@@ -19,9 +19,14 @@ const PayoutTracker = dynamic(() => import('@/components/dashboard/PayoutTracker
 import { motion } from 'framer-motion';
 
 export default function DashboardContent() {
-  const trades = useTradeStore((s) => s.trades);
+  const allTrades = useTradeStore((s) => s.trades);
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
+  const trades = React.useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
   const getStats = useTradeStore((s) => s.getStats);
-  const stats = getStats();
+  const stats = getStats(trades);
 
   return (
     <div className="max-w-[1440px] mx-auto space-y-5 sm:space-y-8">

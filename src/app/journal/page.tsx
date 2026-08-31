@@ -7,7 +7,7 @@ import {
   Sparkles, FileText, Lightbulb, Brain, Star, Trash2, Link2, Tag, ChevronDown, CheckSquare, Square, X
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { useJournalStore, useTradeStore } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useFundedNextStore, useJournalStore, useTradeStore } from '@/lib/store';
 import { getEmotionEmoji, getRelativeTime } from '@/lib/utils';
 import { EMOTIONS, type Emotion, type JournalEntry } from '@/lib/types';
 import { toast } from 'sonner';
@@ -42,7 +42,12 @@ const slashCommands = [
 
 export default function JournalPage() {
   const { entries, addEntry, updateEntry, togglePin, toggleFavorite, deleteEntry } = useJournalStore();
-  const trades = useTradeStore((s) => s.trades);
+  const allTrades = useTradeStore((s) => s.trades);
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
+  const trades = useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
 
   const [search, setSearch] = useState('');
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);

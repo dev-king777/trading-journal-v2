@@ -6,7 +6,8 @@ import {
   Sparkles, Upload, X, Check, Save, Cpu, BrainCircuit, Activity,
   AlertTriangle, RefreshCw, Image, SlidersHorizontal, TrendingUp, TrendingDown, ShieldAlert
 } from 'lucide-react';
-import { useTradeStore, isSupabaseConfigured, supabase } from '@/lib/store';
+import { useTradeStore } from '@/lib/store';
+import { uploadScreenshotToStorage } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Market, Direction, Session, Timeframe } from '@/lib/types';
 import { calculateXAUUSDPnl } from '@/lib/utils';
@@ -55,6 +56,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
   // ─── Dual image states ───
   const [chartImage, setChartImage] = useState<string | null>(null);
   const [chartImageDisplay, setChartImageDisplay] = useState<string | null>(null);
+  const [isUploadingChart, setIsUploadingChart] = useState(false);
   const [detailsImage, setDetailsImage] = useState<string | null>(null);
   const [detailsImagePreview, setDetailsImagePreview] = useState<string | null>(null);
 
@@ -108,6 +110,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
     if (!isOpen) {
       setChartImage(null);
       setChartImageDisplay(null);
+      setIsUploadingChart(false);
       setDetailsImage(null);
       setDetailsImagePreview(null);
       setScanStep('upload');
@@ -187,34 +190,33 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
   };
 
   // ─── File processors ───
-  const processChartFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
+  const processChartFile = async (file: File) => {
+    setIsUploadingChart(true);
+    setChartImageDisplay(null);
+    let fallbackDataUrl = '';
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Could not read the chart image.'));
+        reader.readAsDataURL(file);
+      });
+      fallbackDataUrl = base64;
       setChartImage(base64);
-      setChartImageDisplay(base64);
-    };
-    reader.readAsDataURL(file);
-
-    // Supabase upload for permanent URL
-    if (isSupabaseConfigured) {
-      try {
-        const ext = file.name.split('.').pop();
-        const name = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        supabase.storage
-          .from('screenshots')
-          .upload(`screenshots/${name}`, file)
-          .then((res: { error: unknown }) => {
-            if (!res.error) {
-              const { data: { publicUrl } } = supabase.storage
-                .from('screenshots')
-                .getPublicUrl(`screenshots/${name}`);
-              setChartImageDisplay(publicUrl);
-            }
-          });
-      } catch (err) {
-        console.error('Supabase upload failed:', err);
+      const publicUrl = await uploadScreenshotToStorage(file);
+      setChartImageDisplay(publicUrl);
+      toast.success('Chart screenshot saved to cloud');
+    } catch (err) {
+      console.error('Chart screenshot upload failed:', err);
+      if (fallbackDataUrl) {
+        const compressedFallback = await compressBase64Image(fallbackDataUrl);
+        setChartImageDisplay(compressedFallback);
+        toast.warning('Storage unavailable. Chart will be saved inside the trade database.');
+      } else {
+        toast.error(err instanceof Error ? err.message : 'Could not read this image.');
       }
+    } finally {
+      setIsUploadingChart(false);
     }
   };
 
@@ -235,6 +237,10 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
 
   // ─── Launch analysis ───
   const handleAnalyze = () => {
+    if (isUploadingChart) {
+      toast.error('Wait for the chart screenshot upload to finish');
+      return;
+    }
     if (!chartImage) {
       toast.error('Please upload the chart screenshot (Image 1).');
       return;
@@ -387,6 +393,14 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
 
   const handleSave = async (isDraft: boolean) => {
     try {
+      if (isUploadingChart) {
+        toast.error('Wait for the chart screenshot upload to finish');
+        return;
+      }
+      if (chartImage && !chartImageDisplay) {
+        toast.error('Chart is not saved to cloud yet. Upload it again before saving.');
+        return;
+      }
       // Calculate P&L using the bulletproof formula
       const finalPnl = calculateXAUUSDPnl(
         direction,
@@ -511,7 +525,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-            className="relative w-full max-w-[640px] max-h-[90vh] rounded-2xl border border-yellow-500/20 bg-[#0e0e11] overflow-hidden shadow-2xl z-10 flex flex-col"
+            className="relative w-full h-[100dvh] sm:h-auto sm:max-w-[640px] sm:max-h-[90vh] rounded-none sm:rounded-2xl border border-yellow-500/20 bg-[#0e0e11] overflow-hidden shadow-2xl z-10 flex flex-col"
             style={{ boxShadow: '0 0 60px rgba(234, 179, 8, 0.15)' }}
           >
             {/* Header */}
@@ -526,7 +540,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                 </span>
               </div>
               <button onClick={onClose}
-                className="p-1 rounded-lg hover:bg-white/[0.06] text-foreground-subtle hover:text-foreground transition-colors">
+                className="min-w-11 min-h-11 p-2 rounded-lg hover:bg-white/[0.06] text-foreground-subtle hover:text-foreground transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -605,7 +619,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                   {/* Analyze button */}
                   <button
                     onClick={handleAnalyze}
-                    disabled={!chartImage || !detailsImage}
+                    disabled={!chartImage || !detailsImage || isUploadingChart}
                     className={`w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all ${
                       chartImage && detailsImage
                         ? 'bg-yellow-500 text-black hover:bg-yellow-600 border border-yellow-600/35 cursor-pointer'
@@ -613,7 +627,7 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                     }`}
                   >
                     <BrainCircuit className="w-4 h-4" />
-                    {chartImage && detailsImage ? 'Analyze Both Images' : 'Upload both images to continue'}
+                    {isUploadingChart ? 'Saving chart to cloud...' : chartImage && detailsImage ? 'Analyze Both Images' : 'Upload both images to continue'}
                   </button>
 
                   <p className="text-[10px] text-foreground-subtle/50 text-center">
@@ -877,15 +891,15 @@ export default function DragaAiLogger({ isOpen, onClose }: DragaAiLoggerProps) {
                   </div>
 
                   {/* Footer */}
-                  <div className="flex justify-between items-center pt-3 border-t border-white/[0.04]">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center pt-3 border-t border-white/[0.04]">
                     <button onClick={handleRetry} className="text-xs text-foreground-subtle hover:text-yellow-500 flex items-center gap-1 transition-colors">
                       <RefreshCw className="w-3 h-3" /><span>Re-analyze</span>
                     </button>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleSave(true)} className="btn-secondary py-2 text-xs flex items-center gap-1.5 font-sans">
+                    <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto">
+                      <button onClick={() => handleSave(true)} disabled={isUploadingChart} className="btn-secondary py-2 text-xs flex items-center gap-1.5 font-sans w-full">
                         <Save className="w-3.5 h-3.5 text-foreground-subtle" /><span>Save Draft</span>
                       </button>
-                      <button onClick={() => handleSave(false)} className="btn-primary py-2 text-xs flex items-center gap-1.5 bg-yellow-500 text-black hover:bg-yellow-600 border border-yellow-600/35 font-sans">
+                      <button onClick={() => handleSave(false)} disabled={isUploadingChart} className="btn-primary py-2 text-xs flex items-center gap-1.5 bg-yellow-500 text-black hover:bg-yellow-600 border border-yellow-600/35 font-sans w-full">
                         <Check className="w-3.5 h-3.5" /><span>Log Trade</span>
                       </button>
                     </div>

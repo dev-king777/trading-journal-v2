@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Target, TrendingUp, Shield, AlertTriangle, CheckCircle2,
   Calendar, DollarSign, Zap, ChevronDown, ChevronUp,
   Loader2, RefreshCcw, Wallet, BarChart3, Info
 } from 'lucide-react';
-import { useTradeStore, useFundedNextStore, isSupabaseConfigured, supabase } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useTradeStore, useFundedNextStore, isSupabaseConfigured, supabase } from '@/lib/store';
 import { toast } from 'sonner';
 
 interface PayoutGoal {
@@ -17,15 +17,15 @@ interface PayoutGoal {
 }
 
 // Supabase helpers for goal persistence
-const GOAL_SUPABASE_KEY = 'payout_goal';
-const GOAL_LOCAL_KEY = 'draga-payout-goal';
+const goalSupabaseKey = (accountNumber: string) => `payout_goal_${accountNumber}`;
+const goalLocalKey = (accountNumber: string) => `draga-payout-goal-${accountNumber}`;
 
-async function saveGoalToSupabase(goal: PayoutGoal): Promise<void> {
+async function saveGoalToSupabase(goal: PayoutGoal, key: string): Promise<void> {
   if (!isSupabaseConfigured || !supabase) return;
   try {
     // Use upsert: insert if not exists, update if exists
     await supabase.from('app_settings').upsert(
-      { key: GOAL_SUPABASE_KEY, value: JSON.stringify(goal), updated_at: new Date().toISOString() },
+      { key, value: JSON.stringify(goal), updated_at: new Date().toISOString() },
       { onConflict: 'key' }
     );
   } catch (err) {
@@ -33,13 +33,13 @@ async function saveGoalToSupabase(goal: PayoutGoal): Promise<void> {
   }
 }
 
-async function loadGoalFromSupabase(): Promise<PayoutGoal | null> {
+async function loadGoalFromSupabase(key: string): Promise<PayoutGoal | null> {
   if (!isSupabaseConfigured || !supabase) return null;
   try {
     const { data, error } = await supabase
       .from('app_settings')
       .select('value')
-      .eq('key', GOAL_SUPABASE_KEY)
+      .eq('key', key)
       .single();
 
     if (error || !data?.value) return null;
@@ -50,19 +50,28 @@ async function loadGoalFromSupabase(): Promise<PayoutGoal | null> {
   }
 }
 
-async function removeGoalFromSupabase(): Promise<void> {
+async function removeGoalFromSupabase(key: string): Promise<void> {
   if (!isSupabaseConfigured || !supabase) return;
   try {
-    await supabase.from('app_settings').delete().eq('key', GOAL_SUPABASE_KEY);
+    await supabase.from('app_settings').delete().eq('key', key);
   } catch (err) {
     console.warn('[PayoutTracker] Supabase goal delete failed:', err);
   }
 }
 
 export default function PayoutTracker() {
-  const trades = useTradeStore((s) => s.trades);
+  const allTrades = useTradeStore((s) => s.trades);
   const fnStore = useFundedNextStore();
-  const { account, isConnected, isSyncing, token } = fnStore;
+  const { account, isConnected, isSyncing, token, selectedAccountNumber } = fnStore;
+  const payoutHistory = selectedAccountNumber ? fnStore.detectedPayouts[selectedAccountNumber] || [] : [];
+  const latestPayout = payoutHistory[0];
+  const totalPaid = payoutHistory.reduce((sum, payout) => sum + payout.amount, 0);
+  const trades = useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
+  const accountGoalKey = goalSupabaseKey(selectedAccountNumber || 'default');
+  const localGoalKey = goalLocalKey(selectedAccountNumber || 'default');
 
   const [goal, setGoal] = useState<PayoutGoal | null>(null);
   const [objectiveInput, setObjectiveInput] = useState('');
@@ -71,21 +80,21 @@ export default function PayoutTracker() {
   const [showDetails, setShowDetails] = useState(false);
   const [goalLoading, setGoalLoading] = useState(true);
 
-  // Track if auto-sync has been attempted this session
-  const autoSyncAttempted = useRef(false);
-
   // Load saved goal: Supabase first, then localStorage fallback
   useEffect(() => {
     let cancelled = false;
 
     async function loadGoal() {
+      setGoalLoading(true);
+      setGoal(null);
+      setIsSetup(false);
       // Try Supabase first
-      const supabaseGoal = await loadGoalFromSupabase();
+      const supabaseGoal = await loadGoalFromSupabase(accountGoalKey);
       if (!cancelled && supabaseGoal) {
         setGoal(supabaseGoal);
         setIsSetup(true);
         // Also update localStorage for offline access
-        localStorage.setItem(GOAL_LOCAL_KEY, JSON.stringify(supabaseGoal));
+        localStorage.setItem(localGoalKey, JSON.stringify(supabaseGoal));
         setGoalLoading(false);
         return;
       }
@@ -93,13 +102,13 @@ export default function PayoutTracker() {
       // Fallback to localStorage
       if (!cancelled) {
         try {
-          const saved = localStorage.getItem(GOAL_LOCAL_KEY);
+          const saved = localStorage.getItem(localGoalKey);
           if (saved) {
             const parsed = JSON.parse(saved);
             setGoal(parsed);
             setIsSetup(true);
             // Back-sync to Supabase for cross-device access
-            saveGoalToSupabase(parsed);
+            saveGoalToSupabase(parsed, accountGoalKey);
           }
         } catch {}
         setGoalLoading(false);
@@ -108,31 +117,7 @@ export default function PayoutTracker() {
 
     loadGoal();
     return () => { cancelled = true; };
-  }, []);
-
-  // Auto-connect + auto-sync FundedNext on mount
-  useEffect(() => {
-    if (autoSyncAttempted.current) return;
-    if (!token) return;
-
-    autoSyncAttempted.current = true;
-
-    const doAutoSync = async () => {
-      try {
-        if (!isConnected) {
-          await fnStore.connect(token);
-        } else {
-          await fnStore.sync();
-        }
-      } catch (err) {
-        console.warn('[PayoutTracker] Auto-sync failed:', err);
-      }
-    };
-
-    // Small delay to let the page render first
-    const timer = setTimeout(doAutoSync, 1500);
-    return () => clearTimeout(timer);
-  }, [token, isConnected]);
+  }, [accountGoalKey, localGoalKey]);
 
   // Use MCP balance if available, otherwise calculate from trades
   const accountBalance = account?.balance || 0;
@@ -218,8 +203,8 @@ export default function PayoutTracker() {
     setIsSetup(true);
 
     // Save to BOTH localStorage and Supabase
-    localStorage.setItem(GOAL_LOCAL_KEY, JSON.stringify(newGoal));
-    await saveGoalToSupabase(newGoal);
+    localStorage.setItem(localGoalKey, JSON.stringify(newGoal));
+    await saveGoalToSupabase(newGoal, accountGoalKey);
 
     toast.success(`Payout goal set: $${obj} in ${days} days!`);
   };
@@ -231,8 +216,8 @@ export default function PayoutTracker() {
     setDaysInput('');
 
     // Remove from BOTH localStorage and Supabase
-    localStorage.removeItem(GOAL_LOCAL_KEY);
-    await removeGoalFromSupabase();
+    localStorage.removeItem(localGoalKey);
+    await removeGoalFromSupabase(accountGoalKey);
 
     toast.info('Payout goal reset');
   };
@@ -326,6 +311,33 @@ export default function PayoutTracker() {
           </div>
         </div>
       </div>
+
+      {latestPayout && (
+        <div className="grid gap-3 border-y border-emerald-500/20 bg-emerald-500/[0.04] p-4 sm:grid-cols-[180px_1fr] sm:items-center sm:px-5">
+          <div className="aspect-video overflow-hidden rounded-lg border border-emerald-500/20 bg-black">
+            <img
+              src="/trade-results/payout.png"
+              alt="Payout detected"
+              className="h-full w-full object-cover"
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <Wallet className="h-4 w-4 shrink-0" />
+              <span className="text-xs font-semibold uppercase">Payout detected automatically</span>
+            </div>
+            <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
+              ${latestPayout.amount.toFixed(2)}
+            </p>
+            <p className="mt-1 text-xs text-foreground-subtle">
+              Balance returned from ${latestPayout.peakBalance.toLocaleString()} to ${latestPayout.balanceAfterPayout.toLocaleString()} on {new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(latestPayout.detectedAt))}.
+            </p>
+            <p className="mt-2 text-xs font-medium text-emerald-300">
+              {payoutHistory.length} payout{payoutHistory.length === 1 ? '' : 's'} tracked | ${totalPaid.toFixed(2)} total
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Setup Form or Tracker */}
       <div className="px-4 sm:px-5 pb-4 sm:pb-5">

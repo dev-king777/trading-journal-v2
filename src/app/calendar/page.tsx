@@ -11,11 +11,16 @@ import {
   isSameMonth, addMonths, subMonths, getDay, subDays, startOfWeek, endOfWeek
 } from 'date-fns';
 import AppLayout from '@/components/layout/AppLayout';
-import { useTradeStore, useJournalStore } from '@/lib/store';
+import { filterTradesForFundedNextAccount, useFundedNextStore, useTradeStore, useJournalStore } from '@/lib/store';
 import Link from 'next/link';
 
 export default function CalendarPage() {
-  const trades = useTradeStore((s) => s.trades);
+  const allTrades = useTradeStore((s) => s.trades);
+  const selectedAccountNumber = useFundedNextStore((s) => s.selectedAccountNumber);
+  const trades = useMemo(
+    () => filterTradesForFundedNextAccount(allTrades, selectedAccountNumber),
+    [allTrades, selectedAccountNumber]
+  );
   const entries = useJournalStore((s) => s.entries);
 
   const [currentMonth, setCurrentMonth] = useState(new Date());

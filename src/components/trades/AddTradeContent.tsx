@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { useTradeStore, isSupabaseConfigured, supabase, calculateTradePnl } from '@/lib/store';
+import { useTradeStore, calculateTradePnl } from '@/lib/store';
+import { uploadScreenshotToStorage } from '@/lib/supabase';
 import {
   TradeFormData, tradeSchema, MARKETS, DIRECTIONS, SESSIONS,
   TIMEFRAMES, EMOTIONS, type Market, type Direction, type Session,
@@ -33,6 +34,8 @@ export default function AddTradeContent() {
   const addTrade = useTradeStore((s) => s.addTrade);
   const [activeSection, setActiveSection] = useState('info');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingScreenshot, setIsUploadingScreenshot] = useState(false);
+  const [screenshotPreview, setScreenshotPreview] = useState('');
   const [tagInput, setTagInput] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -135,47 +138,39 @@ export default function AddTradeContent() {
   const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    let fallbackDataUrl = '';
 
     try {
-      toast.loading('Processing screenshot...', { id: 'upload-toast' });
-
-      // 1. Instantly compress and store locally
+      setIsUploadingScreenshot(true);
+      toast.loading('Saving screenshot to cloud...', { id: 'upload-toast' });
       const base64 = await compressAndReadImage(file);
-      setValue('screenshotUrl', base64);
-
-      // 2. Cloud storage sync in background if Supabase is active
-      if (isSupabaseConfigured && supabase) {
-        try {
-          const fileExt = file.name.split('.').pop() || 'jpg';
-          const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
-          const filePath = `screenshots/${fileName}`;
-
-          const { error } = await supabase.storage
-            .from('trade-screenshots')
-            .upload(filePath, file, { upsert: true });
-
-          if (!error) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('trade-screenshots')
-              .getPublicUrl(filePath);
-
-            if (publicUrl) {
-              setValue('screenshotUrl', publicUrl);
-            }
-          }
-        } catch (cloudErr) {
-          console.warn('Cloud storage sync skipped, image preserved as compressed local draft:', cloudErr);
-        }
-      }
-
-      toast.success('Screenshot ready!', { id: 'upload-toast' });
-    } catch (err: any) {
+      fallbackDataUrl = base64;
+      setScreenshotPreview(base64);
+      const publicUrl = await uploadScreenshotToStorage(file);
+      setValue('screenshotUrl', publicUrl, { shouldDirty: true });
+      setScreenshotPreview(publicUrl);
+      toast.success('Screenshot saved to cloud', { id: 'upload-toast' });
+    } catch (err: unknown) {
       console.error('Screenshot processing error:', err);
-      toast.error('Failed to process image file', { id: 'upload-toast' });
+      if (fallbackDataUrl) {
+        setValue('screenshotUrl', fallbackDataUrl, { shouldDirty: true });
+        setScreenshotPreview(fallbackDataUrl);
+        toast.warning('Storage unavailable. Screenshot will be saved safely inside the trade database.', { id: 'upload-toast' });
+      } else {
+        setScreenshotPreview('');
+        toast.error(err instanceof Error ? err.message : 'Could not read this image.', { id: 'upload-toast' });
+      }
+    } finally {
+      setIsUploadingScreenshot(false);
+      e.target.value = '';
     }
   };
 
   const onSubmit = async (data: TradeFormData) => {
+    if (isUploadingScreenshot) {
+      toast.error('Wait for the screenshot upload to finish');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await addTrade({
@@ -541,7 +536,7 @@ export default function AddTradeContent() {
                {/* Screenshot URL */}
               <div>
                 <label className="block text-sm font-medium text-foreground-subtle mb-2">Screenshot URL</label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <input {...register('screenshotUrl')} placeholder="Paste screenshot URL or upload" className="input-field flex-1" />
                   <input
                     type="file"
@@ -553,12 +548,22 @@ export default function AddTradeContent() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="btn-secondary flex items-center gap-1.5"
+                    disabled={isUploadingScreenshot}
+                    className="btn-secondary flex items-center gap-1.5 sm:w-auto w-full"
                   >
-                    <ImagePlus className="w-4 h-4" />
-                    <span>Upload</span>
+                    {isUploadingScreenshot ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+                    <span>{isUploadingScreenshot ? 'Saving...' : 'Upload'}</span>
                   </button>
                 </div>
+                {(screenshotPreview || watchedValues.screenshotUrl) && (
+                  <div className="mt-3 overflow-hidden rounded-lg border border-border-subtle bg-black">
+                    <img
+                      src={screenshotPreview || watchedValues.screenshotUrl}
+                      alt="Trade screenshot preview"
+                      className="h-40 w-full object-contain sm:h-56"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* TradingView Link */}
@@ -638,7 +643,7 @@ export default function AddTradeContent() {
             </div>
           )}
 
-          <div className="flex items-center justify-between p-4 rounded-2xl bg-card border border-border-subtle">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between p-4 rounded-xl bg-card border border-border-subtle">
             <div className="flex gap-2">
               {sections.map((section, i) => {
                 const currentIndex = sections.findIndex((s) => s.id === activeSection);
@@ -665,7 +670,7 @@ export default function AddTradeContent() {
               })}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3 w-full sm:w-auto">
               {activeSection !== 'info' && (
                 <button
                   type="button"
@@ -673,7 +678,7 @@ export default function AddTradeContent() {
                     const idx = sections.findIndex((s) => s.id === activeSection);
                     if (idx > 0) setActiveSection(sections[idx - 1].id);
                   }}
-                  className="btn-secondary"
+                  className="btn-secondary w-full"
                 >
                   Back
                 </button>
@@ -685,7 +690,7 @@ export default function AddTradeContent() {
                     const idx = sections.findIndex((s) => s.id === activeSection);
                     if (idx < sections.length - 1) setActiveSection(sections[idx + 1].id);
                   }}
-                  className="btn-secondary"
+                  className="btn-secondary w-full"
                 >
                   Continue
                   <ChevronRight className="w-4 h-4" />
@@ -693,8 +698,8 @@ export default function AddTradeContent() {
               )}
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="btn-primary"
+                disabled={isSubmitting || isUploadingScreenshot}
+                className="btn-primary col-span-2 sm:col-span-1 w-full"
               >
                 {isSubmitting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
