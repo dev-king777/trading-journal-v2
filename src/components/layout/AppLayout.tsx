@@ -38,19 +38,22 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     setMounted(true);
-    initializeAllStores();
-    const unsubscribe = subscribeToRealtime();
+    initializeAllStores().then(() => {
+      if (cancelled) return;
 
-    // Auto-sync FundedNext MCP across PC & mobile devices
-    const fnStore = useFundedNextStore.getState();
-    if (fnStore.token) {
-      if (!fnStore.isConnected) {
-        fnStore.connect(fnStore.token).catch(() => {});
-      } else {
-        fnStore.sync().catch(() => {});
+      // Start MCP only after persisted trades/accounts are fully hydrated.
+      const fnStore = useFundedNextStore.getState();
+      if (fnStore.token) {
+        if (!fnStore.isConnected) {
+          fnStore.connect(fnStore.token).catch(() => {});
+        } else {
+          fnStore.sync().catch(() => {});
+        }
       }
-    }
+    });
+    const unsubscribe = subscribeToRealtime();
 
     const syncFundedNext = () => {
       const current = useFundedNextStore.getState();
@@ -73,6 +76,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     window.addEventListener('resize', handleResize);
 
     return () => {
+      cancelled = true;
       if (unsubscribe) unsubscribe();
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('focus', syncFundedNext);

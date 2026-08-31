@@ -5,6 +5,32 @@ const MCP_ENDPOINT = 'https://mcp.fundednext.com';
 
 export const maxDuration = 60;
 
+function parseMcpResponse(text: string): any {
+  const trimmed = text.trim();
+  if (!trimmed) return {};
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // Streamable HTTP MCP servers may answer as an SSE event stream.
+    const payloads = trimmed
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).trim())
+      .filter((line) => line && line !== '[DONE]');
+
+    for (let index = payloads.length - 1; index >= 0; index -= 1) {
+      try {
+        return JSON.parse(payloads[index]);
+      } catch {
+        // Continue until a complete JSON event is found.
+      }
+    }
+  }
+
+  throw new Error('FundedNext MCP returned an unsupported response format.');
+}
+
 function mapFundedNextAccount(raw: any): FundedNextAccount {
   const providerAccountId = String(raw.id ?? raw.account_id ?? raw.login ?? '');
   const startingBalance = Number(raw.starting_balance || raw.plan?.startingBalance || raw.startingBalance || 6000);
@@ -39,6 +65,7 @@ async function mcpCall(endpoint: string, token: string, method: string, params: 
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json, text/event-stream',
       'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({
@@ -50,11 +77,12 @@ async function mcpCall(endpoint: string, token: string, method: string, params: 
     signal: AbortSignal.timeout(12_000),
   });
 
+  const text = await res.text().catch(() => '');
+
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
     console.error(`MCP ${method} HTTP ${res.status}:`, text.slice(0, 500));
     try {
-      return JSON.parse(text);
+      return parseMcpResponse(text);
     } catch {
       return {
         error: {
@@ -64,7 +92,7 @@ async function mcpCall(endpoint: string, token: string, method: string, params: 
     }
   }
 
-  return res.json();
+  return parseMcpResponse(text);
 }
 
 // Helper: extract data from various MCP response formats
@@ -230,7 +258,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, token, serverUrl, accountNumber, providerAccountId } = body;
 
-    const cleanToken = (token || '').trim();
+    const cleanToken = String(token || process.env.FUNDEDNEXT_MCP_TOKEN || '').trim();
     if (!cleanToken) {
       return NextResponse.json(
         { success: false, error: 'FundedNext token is required.' },

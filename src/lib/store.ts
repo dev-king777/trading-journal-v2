@@ -395,8 +395,8 @@ export const useTradeStore = create<TradeStore>()(
             if (error) throw error;
           } catch (err) {
             console.error('Supabase insert failed:', err);
-            set((state) => ({ trades: state.trades.filter((trade) => trade.id !== id) }));
-            throw new Error('Trade could not be saved to the cloud database.');
+            // Local persistence is authoritative while cloud sync is unavailable.
+            // Removing the trade here also erased successful MCP imports.
           }
         }
         return id;
@@ -453,10 +453,8 @@ export const useTradeStore = create<TradeStore>()(
             if (error) throw error;
           } catch (err) {
             console.error('Supabase update failed:', err);
-            set((state) => ({
-              trades: state.trades.map((trade) => (trade.id === id ? existing : trade)),
-            }));
-            throw new Error('Changes could not be saved to the cloud database.');
+            // Keep the local edit. A later successful initialization merges it
+            // back into the cloud without losing screenshots or notes.
           }
         }
       },
@@ -1224,7 +1222,55 @@ export const useSettingsStore = create<SettingsStore>()(
 // Database Synchronization Setup
 // ============================================================
 
+const waitForPersistHydration = (store: {
+  persist: {
+    hasHydrated: () => boolean;
+    onFinishHydration: (listener: () => void) => () => void;
+  };
+}) => {
+  if (store.persist.hasHydrated()) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    const unsubscribe = store.persist.onFinishHydration(() => {
+      unsubscribe();
+      resolve();
+    });
+    if (store.persist.hasHydrated()) {
+      unsubscribe();
+      resolve();
+    }
+  });
+};
+
 export const initializeAllStores = async () => {
+  await Promise.all([
+    waitForPersistHydration(useTradeStore),
+    waitForPersistHydration(useJournalStore),
+    waitForPersistHydration(useGoalsStore),
+    waitForPersistHydration(useHabitsStore),
+    waitForPersistHydration(useMoodStore),
+    waitForPersistHydration(useSettingsStore),
+    waitForPersistHydration(useFundedNextStore),
+  ]);
+
+  const hydratedTrades = useTradeStore.getState().trades || [];
+  const scopedHydratedTrades = scopeLegacyFundedNextTrades(hydratedTrades);
+  if (scopedHydratedTrades !== hydratedTrades) {
+    useTradeStore.setState({ trades: scopedHydratedTrades, initialized: true });
+  }
+
+  const fundedNextState = useFundedNextStore.getState();
+  const recoveredAccounts = recoverFundedNextAccounts(
+    scopedHydratedTrades,
+    fundedNextState.accounts
+  );
+  if (recoveredAccounts !== fundedNextState.accounts) {
+    useFundedNextStore.setState({
+      accounts: recoveredAccounts,
+      hasLoadedAccounts: true,
+    });
+  }
+
   if (!isSupabaseConfigured) {
     return;
   }
@@ -1406,20 +1452,21 @@ export const initializeAllStores = async () => {
     }
   } catch (err) {
     console.error('Failed to load from Supabase:', err);
+    // Hydrated browser data must survive an unavailable cloud database.
     if (!useTradeStore.getState().initialized) {
-      useTradeStore.setState({ trades: [], initialized: true });
+      useTradeStore.setState({ initialized: true });
     }
     if (!useJournalStore.getState().initialized) {
-      useJournalStore.setState({ entries: [], initialized: true });
+      useJournalStore.setState({ initialized: true });
     }
     if (!useGoalsStore.getState().initialized) {
-      useGoalsStore.setState({ goals: [], initialized: true });
+      useGoalsStore.setState({ initialized: true });
     }
     if (!useHabitsStore.getState().initialized) {
-      useHabitsStore.setState({ habits: [], initialized: true });
+      useHabitsStore.setState({ initialized: true });
     }
     if (!useMoodStore.getState().initialized) {
-      useMoodStore.setState({ moodEntries: [], initialized: true });
+      useMoodStore.setState({ initialized: true });
     }
   }
 };
@@ -1523,6 +1570,68 @@ export const subscribeToRealtime = () => {
 
 export const fundedNextAccountTag = (accountNumber: string) => `FundedNext:${accountNumber}`;
 
+const LEGACY_FUNDEDNEXT_ACCOUNT = '14180952';
+const LEGACY_FUNDEDNEXT_ACCOUNTS = ['14180952', '14189805'];
+
+const isUnscopedFundedNextMcpTrade = (trade: Trade) => {
+  const tags = trade.tags || [];
+  const isFundedNextTrade = tags.includes('FundedNext') || /FundedNext\s+Ticket/i.test(trade.notes || '');
+  const isMcpTrade = tags.includes('MCP') || /FundedNext\s+Ticket/i.test(trade.notes || '');
+  const hasAccountTag = tags.some((tag) => tag.startsWith('FundedNext:'));
+  return isFundedNextTrade && isMcpTrade && !hasAccountTag && !tags.includes('Legacy History');
+};
+
+const scopeLegacyFundedNextTrades = (trades: Trade[]): Trade[] => {
+  let changed = false;
+  const accountTag = fundedNextAccountTag(LEGACY_FUNDEDNEXT_ACCOUNT);
+  const scoped = trades.map((trade) => {
+    if (!isUnscopedFundedNextMcpTrade(trade)) return trade;
+    changed = true;
+    return { ...trade, tags: Array.from(new Set([...(trade.tags || []), accountTag])) };
+  });
+  return changed ? scoped : trades;
+};
+
+const createRecoveredFundedNextAccount = (accountNumber: string): FundedNextAccount => ({
+  providerAccountId: `cached-${accountNumber}`,
+  accountNumber,
+  accountType: 'FundedNext Cached Account',
+  balance: 6000,
+  equity: 6000,
+  initialBalance: 6000,
+  profitTarget: 600,
+  maxDailyLossLimit: 300,
+  currentDailyLoss: 0,
+  maxOverallLossLimit: 600,
+  currentOverallLoss: 0,
+  payoutEligible: false,
+  status: 'Active',
+  lastSyncedAt: new Date(0).toISOString(),
+});
+
+const recoverFundedNextAccounts = (
+  trades: Trade[],
+  existingAccounts: FundedNextAccount[]
+): FundedNextAccount[] => {
+  if (existingAccounts.length > 0) return existingAccounts;
+
+  const hasFundedNextHistory = trades.some((trade) => {
+    const tags = trade.tags || [];
+    return tags.includes('FundedNext') && tags.includes('MCP');
+  });
+  if (!hasFundedNextHistory) return existingAccounts;
+
+  const accountNumbers = new Set(
+    trades.flatMap((trade) => (trade.tags || [])
+      .filter((tag) => tag.startsWith('FundedNext:'))
+      .map((tag) => tag.slice('FundedNext:'.length))
+      .filter(Boolean))
+  );
+  LEGACY_FUNDEDNEXT_ACCOUNTS.forEach((accountNumber) => accountNumbers.add(accountNumber));
+
+  return Array.from(accountNumbers).map(createRecoveredFundedNextAccount);
+};
+
 const getFundedNextTicket = (trade: Pick<Trade, 'notes'>): string | null => {
   const match = trade.notes?.match(/\bTicket\s*#?\s*([A-Za-z0-9-]+)/i);
   return match?.[1]?.toLowerCase() || null;
@@ -1554,7 +1663,10 @@ let screenshotRecoveryPool: Trade[] = [];
 export function filterTradesForFundedNextAccount(trades: Trade[], accountNumber: string | null): Trade[] {
   if (!accountNumber) return trades;
   const accountTag = fundedNextAccountTag(accountNumber);
-  return trades.filter((trade) => trade.tags?.includes(accountTag));
+  return trades.filter((trade) =>
+    trade.tags?.includes(accountTag)
+    || (accountNumber === LEGACY_FUNDEDNEXT_ACCOUNT && isUnscopedFundedNextMcpTrade(trade))
+  );
 }
 
 async function importFundedNextTrades(trades: Partial<Trade>[], accountNumber: string): Promise<number> {
@@ -1751,7 +1863,7 @@ interface FundedNextStore {
   disconnect: () => void;
 }
 
-const DEFAULT_FUNDEDNEXT_TOKEN = '63872635|gKbjIPxvh1lRWQGpx51AzkE3xl4ULMKXYCTnSqay5498f99b';
+const DEFAULT_FUNDEDNEXT_TOKEN = '';
 
 export const useFundedNextStore = create<FundedNextStore>()(
   persist(
@@ -1831,8 +1943,14 @@ export const useFundedNextStore = create<FundedNextStore>()(
             return true;
           } else {
             const message = data.error || 'Failed to connect FundedNext MCP';
+            const tokenRejected = /invalid|revoked/i.test(message);
             toast.error(message);
-            set({ isSyncing: false, hasLoadedAccounts: true, lastError: message });
+            set({
+              ...(tokenRejected ? { token: '', isConnected: false } : {}),
+              isSyncing: false,
+              hasLoadedAccounts: true,
+              lastError: message,
+            });
             return false;
           }
         } catch (err: any) {
@@ -1846,10 +1964,22 @@ export const useFundedNextStore = create<FundedNextStore>()(
 
       selectAccount: async (accountNumber: string) => {
         const { token, accounts } = get();
-        if (!token || !accountNumber) return false;
+        if (!accountNumber) return false;
+
+        const cachedAccount = accounts.find((candidate) => candidate.accountNumber === accountNumber);
+        if (!token) {
+          if (!cachedAccount) return false;
+          set({
+            account: cachedAccount,
+            selectedAccountNumber: accountNumber,
+            isConnected: false,
+            isSyncing: false,
+          });
+          toast.warning('Showing cached account data. Add a new MCP token to resume live sync.');
+          return true;
+        }
 
         const requestId = ++latestFundedNextSelectionRequest;
-        const cachedAccount = accounts.find((candidate) => candidate.accountNumber === accountNumber);
 
         // Switch the visible account immediately; live MCP data refreshes in the background.
         set({
@@ -1872,7 +2002,13 @@ export const useFundedNextStore = create<FundedNextStore>()(
           }
           if (!data.success || !data.account) {
             const message = data.error || 'Could not load this FundedNext account';
-            set({ isSyncing: false, lastError: message, accounts: data.accounts || get().accounts });
+            const tokenRejected = /invalid|revoked/i.test(message);
+            set({
+              ...(tokenRejected ? { token: '', isConnected: false } : {}),
+              isSyncing: false,
+              lastError: message,
+              accounts: data.accounts || get().accounts,
+            });
             toast.error(cachedAccount ? `${message} Showing cached account data.` : message);
             return false;
           }
@@ -1948,7 +2084,13 @@ export const useFundedNextStore = create<FundedNextStore>()(
 
             return true;
           } else {
-            set({ isSyncing: false, lastError: data.error || 'FundedNext sync failed' });
+            const message = data.error || 'FundedNext sync failed';
+            const tokenRejected = /invalid|revoked/i.test(message);
+            set({
+              ...(tokenRejected ? { token: '', isConnected: false } : {}),
+              isSyncing: false,
+              lastError: message,
+            });
             return false;
           }
         } catch (e) {

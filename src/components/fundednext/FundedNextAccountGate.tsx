@@ -56,7 +56,7 @@ export default function FundedNextAccountGate() {
 
           <div className="flex items-center gap-2 text-xs font-semibold text-profit mb-3">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            FundedNext MCP connected
+            {token ? 'FundedNext MCP connected' : 'FundedNext cached accounts ready'}
           </div>
           <h1 className="text-2xl sm:text-4xl font-bold text-foreground">Choose your trading account</h1>
           <p className="mt-3 max-w-2xl text-sm sm:text-base leading-relaxed text-foreground-subtle">
