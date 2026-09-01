@@ -1259,7 +1259,7 @@ export const initializeAllStores = async () => {
     useTradeStore.setState({ trades: scopedHydratedTrades, initialized: true });
   }
 
-  if (USE_SERVER_MANAGED_MCP && !useFundedNextStore.getState().token) {
+  if (!useFundedNextStore.getState().token) {
     useFundedNextStore.setState({ token: SERVER_MANAGED_MCP_TOKEN });
   }
   const fundedNextState = useFundedNextStore.getState();
@@ -1584,7 +1584,6 @@ const LEGACY_FUNDEDNEXT_ACCOUNT_SIZES: Record<string, number> = {
   '14190881': 15000,
 };
 const SERVER_MANAGED_MCP_TOKEN = '__server__';
-const USE_SERVER_MANAGED_MCP = process.env.NEXT_PUBLIC_FUNDEDNEXT_SERVER_MANAGED === 'true';
 
 const isUnscopedFundedNextMcpTrade = (trade: Trade) => {
   const tags = trade.tags || [];
@@ -1936,7 +1935,7 @@ interface FundedNextStore {
   disconnect: () => void;
 }
 
-const DEFAULT_FUNDEDNEXT_TOKEN = USE_SERVER_MANAGED_MCP ? SERVER_MANAGED_MCP_TOKEN : '';
+const DEFAULT_FUNDEDNEXT_TOKEN = SERVER_MANAGED_MCP_TOKEN;
 
 export const useFundedNextStore = create<FundedNextStore>()(
   persist(
