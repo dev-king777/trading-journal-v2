@@ -205,6 +205,44 @@ function extractDataFromResponse(json: any): any[] | null {
   return null;
 }
 
+const isClosedTradeRecord = (trade: any) => {
+  if (!trade || typeof trade !== 'object') return false;
+  const closeLabel = String(trade.close_time_str ?? trade.closeTimeStr ?? '').toLowerCase();
+  if (closeLabel.includes('currently running') || closeLabel === 'running') return false;
+  if (trade.close_time === 0 || trade.closeTime === 0) return false;
+  return true;
+};
+
+function extractClosedTradesFromResponse(json: any): any[] {
+  if (!json?.result || json.result.isError) return [];
+
+  const payloads: any[] = [];
+  if (json.result.structuredContent) payloads.push(json.result.structuredContent);
+  if (Array.isArray(json.result.content)) {
+    for (const item of json.result.content) {
+      if (!item?.text) continue;
+      try {
+        payloads.push(JSON.parse(item.text));
+      } catch {
+        // Ignore human-readable MCP content blocks.
+      }
+    }
+  }
+
+  for (const payload of payloads) {
+    const explicitTrades = Array.isArray(payload?.trades?.data)
+      ? payload.trades.data
+      : Array.isArray(payload?.trades)
+        ? payload.trades
+        : Array.isArray(payload)
+          ? payload
+          : null;
+    if (explicitTrades) return explicitTrades.filter(isClosedTradeRecord);
+  }
+
+  return (extractDataFromResponse(json) || []).filter(isClosedTradeRecord);
+}
+
 function extractMcpError(json: any): string | null {
   if (!json) return null;
   if (json.error?.message) return json.error.message;
@@ -258,7 +296,12 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { action, token, serverUrl, accountNumber, providerAccountId } = body;
 
-    const cleanToken = String(token || process.env.FUNDEDNEXT_MCP_TOKEN || '').trim();
+    const requestToken = String(token || '').trim();
+    const cleanToken = String(
+      requestToken === '__server__'
+        ? process.env.FUNDEDNEXT_MCP_TOKEN || ''
+        : requestToken || process.env.FUNDEDNEXT_MCP_TOKEN || ''
+    ).trim();
     if (!cleanToken) {
       return NextResponse.json(
         { success: false, error: 'FundedNext token is required.' },
@@ -401,7 +444,7 @@ export async function POST(req: Request) {
             arguments: candidate.args,
           }, 2);
 
-          const parsedList = extractDataFromResponse(historyJson);
+          const parsedList = extractClosedTradesFromResponse(historyJson);
           if (tradingCycles.length === 0) {
             tradingCycles = extractTradingCycles(historyJson);
           }
@@ -418,7 +461,7 @@ export async function POST(req: Request) {
         }
       }
 
-      if (rawTradesList.length === 0 && tradingCycles.length > 0 && availableTools.includes('get_cycle_trading_history')) {
+      if (tradingCycles.length > 0 && availableTools.includes('get_cycle_trading_history')) {
         const cycleResponses = await Promise.all(
           tradingCycles.map((cycle, index) => mcpCall(endpoint, cleanToken, 'tools/call', {
             name: 'get_cycle_trading_history',
@@ -429,9 +472,11 @@ export async function POST(req: Request) {
           }, 10 + index))
         );
 
-        const cycleTrades = cycleResponses.flatMap((response) => extractDataFromResponse(response) || []);
+        const cycleTrades = cycleResponses.flatMap(extractClosedTradesFromResponse);
         const seenTrades = new Set<string>();
-        rawTradesList = cycleTrades.filter((trade: any) => {
+        rawTradesList = [...rawTradesList, ...cycleTrades]
+          .filter(isClosedTradeRecord)
+          .filter((trade: any) => {
           const key = String(
             trade.ticket ?? trade.order ?? trade.id ??
             `${trade.symbol || trade.pair}:${trade.open_time || trade.date}:${trade.entry_price || trade.open_price}`
@@ -439,7 +484,7 @@ export async function POST(req: Request) {
           if (seenTrades.has(key)) return false;
           seenTrades.add(key);
           return true;
-        });
+          });
         console.log(`[FundedNext MCP] Loaded ${rawTradesList.length} trades from ${tradingCycles.length} trading cycles.`);
       }
 
@@ -595,6 +640,19 @@ export async function POST(req: Request) {
         };
       });
     }
+
+    const seenClosedTrades = new Set<string>();
+    rawTradesList = rawTradesList
+      .filter(isClosedTradeRecord)
+      .filter((trade: any) => {
+        const key = String(
+          trade.ticket ?? trade.order ?? trade.id ??
+          `${trade.symbol || trade.pair}:${trade.open_time || trade.date}:${trade.entry_price || trade.open_price}`
+        );
+        if (seenClosedTrades.has(key)) return false;
+        seenClosedTrades.add(key);
+        return true;
+      });
 
     const historicalNetPnl = trades.reduce((sum, trade) => sum + Number(trade.pnl || 0), 0);
     const currentBalanceProfit = account.balance - account.initialBalance;

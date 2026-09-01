@@ -1259,14 +1259,22 @@ export const initializeAllStores = async () => {
     useTradeStore.setState({ trades: scopedHydratedTrades, initialized: true });
   }
 
+  if (USE_SERVER_MANAGED_MCP && !useFundedNextStore.getState().token) {
+    useFundedNextStore.setState({ token: SERVER_MANAGED_MCP_TOKEN });
+  }
   const fundedNextState = useFundedNextStore.getState();
   const recoveredAccounts = recoverFundedNextAccounts(
     scopedHydratedTrades,
     fundedNextState.accounts
   );
   if (recoveredAccounts !== fundedNextState.accounts) {
+    const selectedAccount = recoveredAccounts.find(
+      (account) => account.accountNumber === fundedNextState.selectedAccountNumber
+    ) || null;
     useFundedNextStore.setState({
       accounts: recoveredAccounts,
+      account: selectedAccount,
+      selectedAccountNumber: selectedAccount?.accountNumber || null,
       hasLoadedAccounts: true,
     });
   }
@@ -1573,8 +1581,10 @@ export const fundedNextAccountTag = (accountNumber: string) => `FundedNext:${acc
 const LEGACY_FUNDEDNEXT_ACCOUNT = '14180952';
 const LEGACY_FUNDEDNEXT_ACCOUNT_SIZES: Record<string, number> = {
   '14180952': 6000,
-  '14189805': 15000,
+  '14190881': 15000,
 };
+const SERVER_MANAGED_MCP_TOKEN = '__server__';
+const USE_SERVER_MANAGED_MCP = process.env.NEXT_PUBLIC_FUNDEDNEXT_SERVER_MANAGED === 'true';
 
 const isUnscopedFundedNextMcpTrade = (trade: Trade) => {
   const tags = trade.tags || [];
@@ -1621,7 +1631,14 @@ const recoverFundedNextAccounts = (
 ): FundedNextAccount[] => {
   if (existingAccounts.length > 0) {
     let changed = false;
-    const repairedAccounts = existingAccounts.map((account) => {
+    const repairedAccounts = existingAccounts
+      .filter((account) => {
+        const isObsoleteRecoveredAccount = account.providerAccountId.startsWith('cached-')
+          && account.accountNumber === '14189805';
+        if (isObsoleteRecoveredAccount) changed = true;
+        return !isObsoleteRecoveredAccount;
+      })
+      .map((account) => {
       const expectedSize = LEGACY_FUNDEDNEXT_ACCOUNT_SIZES[account.accountNumber];
       const isRecoveredAccount = account.providerAccountId.startsWith('cached-');
       if (!expectedSize || !isRecoveredAccount || (
@@ -1634,6 +1651,12 @@ const recoverFundedNextAccounts = (
       changed = true;
       return createRecoveredFundedNextAccount(account.accountNumber);
     });
+    for (const accountNumber of Object.keys(LEGACY_FUNDEDNEXT_ACCOUNT_SIZES)) {
+      if (!repairedAccounts.some((account) => account.accountNumber === accountNumber)) {
+        repairedAccounts.push(createRecoveredFundedNextAccount(accountNumber));
+        changed = true;
+      }
+    }
     return changed ? repairedAccounts : existingAccounts;
   }
 
@@ -1696,6 +1719,33 @@ async function importFundedNextTrades(trades: Partial<Trade>[], accountNumber: s
   const addTrade = useTradeStore.getState().addTrade;
   const accountTag = fundedNextAccountTag(accountNumber);
   if (!Array.isArray(trades) || trades.length === 0) return 0;
+
+  const incomingTickets = new Set(
+    trades.map((trade) => getFundedNextTicket({ notes: trade.notes || '' })).filter(Boolean)
+  );
+  if (incomingTickets.size > 0) {
+    const staleTradeIds = useTradeStore.getState().trades
+      .filter((trade) => {
+        const ticket = getFundedNextTicket(trade);
+        return trade.tags?.includes(accountTag)
+          && trade.tags?.includes('MCP')
+          && Boolean(ticket)
+          && !incomingTickets.has(ticket);
+      })
+      .map((trade) => trade.id);
+
+    if (staleTradeIds.length > 0) {
+      const staleIds = new Set(staleTradeIds);
+      useTradeStore.setState((state) => ({
+        trades: state.trades.filter((trade) => !staleIds.has(trade.id)),
+      }));
+      if (isSupabaseConfigured) {
+        supabase.from('trades').delete().in('id', staleTradeIds).then(({ error }: { error: unknown }) => {
+          if (error) console.warn('[FundedNext] Could not remove stale running trades from cloud:', error);
+        });
+      }
+    }
+  }
 
   let importedCount = 0;
 
@@ -1886,7 +1936,7 @@ interface FundedNextStore {
   disconnect: () => void;
 }
 
-const DEFAULT_FUNDEDNEXT_TOKEN = '';
+const DEFAULT_FUNDEDNEXT_TOKEN = USE_SERVER_MANAGED_MCP ? SERVER_MANAGED_MCP_TOKEN : '';
 
 export const useFundedNextStore = create<FundedNextStore>()(
   persist(
