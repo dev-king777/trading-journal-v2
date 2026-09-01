@@ -1571,7 +1571,10 @@ export const subscribeToRealtime = () => {
 export const fundedNextAccountTag = (accountNumber: string) => `FundedNext:${accountNumber}`;
 
 const LEGACY_FUNDEDNEXT_ACCOUNT = '14180952';
-const LEGACY_FUNDEDNEXT_ACCOUNTS = ['14180952', '14189805'];
+const LEGACY_FUNDEDNEXT_ACCOUNT_SIZES: Record<string, number> = {
+  '14180952': 6000,
+  '14189805': 15000,
+};
 
 const isUnscopedFundedNextMcpTrade = (trade: Trade) => {
   const tags = trade.tags || [];
@@ -1592,28 +1595,47 @@ const scopeLegacyFundedNextTrades = (trades: Trade[]): Trade[] => {
   return changed ? scoped : trades;
 };
 
-const createRecoveredFundedNextAccount = (accountNumber: string): FundedNextAccount => ({
-  providerAccountId: `cached-${accountNumber}`,
-  accountNumber,
-  accountType: 'FundedNext Cached Account',
-  balance: 6000,
-  equity: 6000,
-  initialBalance: 6000,
-  profitTarget: 600,
-  maxDailyLossLimit: 300,
-  currentDailyLoss: 0,
-  maxOverallLossLimit: 600,
-  currentOverallLoss: 0,
-  payoutEligible: false,
-  status: 'Active',
-  lastSyncedAt: new Date(0).toISOString(),
-});
+const createRecoveredFundedNextAccount = (accountNumber: string): FundedNextAccount => {
+  const accountSize = LEGACY_FUNDEDNEXT_ACCOUNT_SIZES[accountNumber] || 6000;
+  return {
+    providerAccountId: `cached-${accountNumber}`,
+    accountNumber,
+    accountType: `FundedNext ${accountSize / 1000}K Account`,
+    balance: accountSize,
+    equity: accountSize,
+    initialBalance: accountSize,
+    profitTarget: accountSize * 0.10,
+    maxDailyLossLimit: accountSize * 0.05,
+    currentDailyLoss: 0,
+    maxOverallLossLimit: accountSize * 0.10,
+    currentOverallLoss: 0,
+    payoutEligible: false,
+    status: 'Active',
+    lastSyncedAt: new Date(0).toISOString(),
+  };
+};
 
 const recoverFundedNextAccounts = (
   trades: Trade[],
   existingAccounts: FundedNextAccount[]
 ): FundedNextAccount[] => {
-  if (existingAccounts.length > 0) return existingAccounts;
+  if (existingAccounts.length > 0) {
+    let changed = false;
+    const repairedAccounts = existingAccounts.map((account) => {
+      const expectedSize = LEGACY_FUNDEDNEXT_ACCOUNT_SIZES[account.accountNumber];
+      const isRecoveredAccount = account.providerAccountId.startsWith('cached-');
+      if (!expectedSize || !isRecoveredAccount || (
+        account.initialBalance === expectedSize
+        && account.balance === expectedSize
+        && account.equity === expectedSize
+      )) {
+        return account;
+      }
+      changed = true;
+      return createRecoveredFundedNextAccount(account.accountNumber);
+    });
+    return changed ? repairedAccounts : existingAccounts;
+  }
 
   const hasFundedNextHistory = trades.some((trade) => {
     const tags = trade.tags || [];
@@ -1627,7 +1649,8 @@ const recoverFundedNextAccounts = (
       .map((tag) => tag.slice('FundedNext:'.length))
       .filter(Boolean))
   );
-  LEGACY_FUNDEDNEXT_ACCOUNTS.forEach((accountNumber) => accountNumbers.add(accountNumber));
+  Object.keys(LEGACY_FUNDEDNEXT_ACCOUNT_SIZES)
+    .forEach((accountNumber) => accountNumbers.add(accountNumber));
 
   return Array.from(accountNumbers).map(createRecoveredFundedNextAccount);
 };
