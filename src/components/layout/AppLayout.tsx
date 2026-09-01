@@ -10,7 +10,7 @@ import CommandPalette from './CommandPalette';
 import SplashScreen from './SplashScreen';
 import FundedNextAccountGate from '@/components/fundednext/FundedNextAccountGate';
 import FundedNextAccountSwitcher from '@/components/fundednext/FundedNextAccountSwitcher';
-import { useSettingsStore, useFundedNextStore, initializeAllStores, subscribeToRealtime, isSupabaseConfigured } from '@/lib/store';
+import { useSettingsStore, useFundedNextStore, initializeAllStores, waitForAllStoresHydration, subscribeToRealtime, isSupabaseConfigured } from '@/lib/store';
 import { Toaster } from 'sonner';
 import { Database, LogOut } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -40,7 +40,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     setMounted(true);
-    initializeAllStores().then(() => {
+    initializeAllStores().catch(() => {});
+    waitForAllStoresHydration().then(() => {
       if (cancelled) return;
 
       // Start MCP only after persisted trades/accounts are fully hydrated.

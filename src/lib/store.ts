@@ -1242,7 +1242,7 @@ const waitForPersistHydration = (store: {
   });
 };
 
-export const initializeAllStores = async () => {
+export const waitForAllStoresHydration = async () => {
   await Promise.all([
     waitForPersistHydration(useTradeStore),
     waitForPersistHydration(useJournalStore),
@@ -1252,6 +1252,10 @@ export const initializeAllStores = async () => {
     waitForPersistHydration(useSettingsStore),
     waitForPersistHydration(useFundedNextStore),
   ]);
+};
+
+export const initializeAllStores = async () => {
+  await waitForAllStoresHydration();
 
   const hydratedTrades = useTradeStore.getState().trades || [];
   const scopedHydratedTrades = scopeLegacyFundedNextTrades(hydratedTrades);
