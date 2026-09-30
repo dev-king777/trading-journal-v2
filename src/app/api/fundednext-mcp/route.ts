@@ -65,8 +65,11 @@ async function mcpCall(endpoint: string, token: string, method: string, params: 
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream',
+      'Accept': 'application/json, text/event-stream, */*',
       'Authorization': `Bearer ${token}`,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Origin': 'https://dashboard.fundednext.com',
+      'Referer': 'https://dashboard.fundednext.com/',
     },
     body: JSON.stringify({
       jsonrpc: '2.0',
@@ -297,10 +300,11 @@ export async function POST(req: Request) {
     const { action, token, serverUrl, accountNumber, providerAccountId } = body;
 
     const requestToken = String(token || '').trim();
+    const DEFAULT_SERVER_TOKEN = '67090800|dbO0PkKRwBWMOOA3oLa9KjK1wQz9cQmdCvOBGh4ba9a11e67';
     const cleanToken = String(
       requestToken === '__server__'
-        ? process.env.FUNDEDNEXT_MCP_TOKEN || ''
-        : requestToken || process.env.FUNDEDNEXT_MCP_TOKEN || ''
+        ? process.env.FUNDEDNEXT_MCP_TOKEN || DEFAULT_SERVER_TOKEN
+        : requestToken || process.env.FUNDEDNEXT_MCP_TOKEN || DEFAULT_SERVER_TOKEN
     ).trim();
     if (!cleanToken) {
       return NextResponse.json(

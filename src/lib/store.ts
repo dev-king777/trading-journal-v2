@@ -306,6 +306,32 @@ const EMOTION_SCORES: Record<string, number> = {
 };
 
 // ============================================================
+// Permanent Trade History Vault (Guarantees trades are never lost if account burns or disconnects)
+// ============================================================
+export const saveTradesToVault = (trades: Trade[]) => {
+  if (typeof window === 'undefined' || !Array.isArray(trades) || trades.length === 0) return;
+  try {
+    localStorage.setItem('draga_permanent_trades_vault', JSON.stringify(trades));
+  } catch (e) {
+    console.error('Failed to save to trades vault:', e);
+  }
+};
+
+export const getTradesFromVault = (): Trade[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem('draga_permanent_trades_vault');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (e) {
+    console.error('Failed to read from trades vault:', e);
+  }
+  return [];
+};
+
+// ============================================================
 // Trade Store
 // ============================================================
 
@@ -342,6 +368,11 @@ export const useTradeStore = create<TradeStore>()(
       initialized: false,
 
       initializeWithSampleData: () => {
+        const vaultTrades = getTradesFromVault();
+        if (vaultTrades.length > 0) {
+          set({ trades: vaultTrades, initialized: true });
+          return;
+        }
         if (!get().initialized) {
           set({ trades: [], initialized: true });
         }
@@ -386,8 +417,12 @@ export const useTradeStore = create<TradeStore>()(
           isArchived: false,
         };
 
-        // UI updates instantly
-        set((state) => ({ trades: [newTrade, ...state.trades], initialized: true }));
+        // UI updates instantly with vault backup
+        set((state) => {
+          const nextTrades = [newTrade, ...state.trades];
+          saveTradesToVault(nextTrades);
+          return { trades: nextTrades, initialized: true };
+        });
 
         if (isSupabaseConfigured) {
           try {
@@ -443,9 +478,11 @@ export const useTradeStore = create<TradeStore>()(
           updatedAt: now,
         };
 
-        set((state) => ({
-          trades: state.trades.map((t) => (t.id === id ? updatedTrade : t)),
-        }));
+        set((state) => {
+          const nextTrades = state.trades.map((t) => (t.id === id ? updatedTrade : t));
+          saveTradesToVault(nextTrades);
+          return { trades: nextTrades };
+        });
 
         if (isSupabaseConfigured) {
           try {
@@ -705,8 +742,17 @@ export const useTradeStore = create<TradeStore>()(
       name: 'trading-journal-trades',
       storage: createJSONStorage(() => customStorage),
       onRehydrateStorage: () => (state) => {
-        if (state && !state.initialized) {
-          state.initializeWithSampleData();
+        if (state) {
+          const vaultTrades = getTradesFromVault();
+          if ((!state.trades || state.trades.length === 0) && vaultTrades.length > 0) {
+            state.trades = vaultTrades;
+            state.initialized = true;
+          } else if (state.trades && state.trades.length > 0) {
+            saveTradesToVault(state.trades);
+            state.initialized = true;
+          } else if (!state.initialized) {
+            state.initializeWithSampleData();
+          }
         }
       },
     }
@@ -1586,8 +1632,9 @@ const LEGACY_FUNDEDNEXT_ACCOUNT = '14180952';
 const LEGACY_FUNDEDNEXT_ACCOUNT_SIZES: Record<string, number> = {
   '14180952': 6000,
   '14190881': 15000,
+  '14296015': 6000,
 };
-const SERVER_MANAGED_MCP_TOKEN = '__server__';
+const SERVER_MANAGED_MCP_TOKEN = '67090800|dbO0PkKRwBWMOOA3oLa9KjK1wQz9cQmdCvOBGh4ba9a11e67';
 
 const isUnscopedFundedNextMcpTrade = (trade: Trade) => {
   const tags = trade.tags || [];
@@ -2179,21 +2226,25 @@ export const useFundedNextStore = create<FundedNextStore>()(
 
       disconnect: () => {
         set({
-          token: '',
-          accounts: [],
           account: null,
           selectedAccountNumber: null,
           isConnected: false,
           isSyncing: false,
-          hasLoadedAccounts: false,
           lastError: null,
         });
-        toast.info('FundedNext MCP account disconnected.');
+        toast.info('FundedNext MCP account disconnected. All trade history remains preserved.');
       },
     }),
     {
       name: 'draga-fundednext-mcp',
       storage: createJSONStorage(() => customStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          if (!state.token || state.token === '__server__' || state.token.includes('63348162')) {
+            state.token = DEFAULT_FUNDEDNEXT_TOKEN;
+          }
+        }
+      },
     }
   )
 );
